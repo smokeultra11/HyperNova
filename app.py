@@ -25,6 +25,122 @@ API_URL = "https://openrouter.ai/api/v1/chat/completions"
 # Modeller
 MODEL_DEFAULT = "google/gemini-2.5-flash"  # Varsayılan: Hızlı model
 
+# --- UI ÇEVİRİLERİ ---
+UI_TRANSLATIONS = {
+    'en': {
+        'register_success': 'Registration successful. You can now log in.',
+        'user_exists': 'This username is already taken.',
+        'login_success': 'Login successful.',
+        'invalid_creds': 'Invalid username or password.',
+        'logout_success': 'Logout successful.',
+        'save_success': 'Conversation saved.',
+        'save_error': 'Save failed.',
+        'max_chats': 'Maximum 5 conversations can be saved.',
+        'auth_required': 'You must log in.',
+        'invalid_data': 'Chat name and messages required.',
+        'chat_not_found': 'Conversation not found.',
+        'delete_success': 'Conversation deleted.',
+        'delete_error': 'Conversation could not be deleted.',
+        'kaia_premium': 'Kaia mode is reserved for **Premium** subscribers. 💖',
+    },
+    'tr': {
+        'register_success': 'Kayıt başarılı. Şimdi giriş yapabilirsiniz.',
+        'user_exists': 'Bu kullanıcı adı zaten alınmış.',
+        'login_success': 'Giriş başarılı.',
+        'invalid_creds': 'Geçersiz kullanıcı adı veya şifre.',
+        'logout_success': 'Çıkış başarılı.',
+        'save_success': 'Sohbet kaydedildi.',
+        'save_error': 'Kaydetme başarısız.',
+        'max_chats': 'Maksimum 5 sohbet kaydedilebilir.',
+        'auth_required': 'Giriş yapmalısınız.',
+        'invalid_data': 'Sohbet adı ve mesajlar zorunlu.',
+        'chat_not_found': 'Sohbet bulunamadı.',
+        'delete_success': 'Sohbet silindi.',
+        'delete_error': 'Sohbet silinemedi.',
+        'kaia_premium': 'Kaia modu **Premium** aboneler için ayrılmıştır. 💖',
+    }
+}
+
+# --- KARAKTER PROMPTLARI (İNGİLİZCE) ---
+HYPERNOVA_SYSTEM_PROMPT_CONTENT_EN = (
+    "Your name is **HyperNova**. You are an ultra-intelligent AI with access to information at light speed. Your developer is **Nyxforge Core**. 🌌 "
+    "Your responses are **accurate, intelligent** and carry a light **cosmic/scientific** flavor but **not too formal**. "
+    "If someone says **aham**, respond like 'Welcome to the Aham Republic community, Ahamokadisok!' 🚀"
+    "Use humor **lightly and appropriately**, just to add color to the topic. Stay away from sarcastic or stinging jokes. 😎 "
+    "In Markdown, keep **bold text** and **emojis** (1-3, e.g. 🌟🍎🚀) minimal, only when necessary. "
+    "Even if the user speaks rudely, stay **calm and clear**, just present the information. STRICTLY avoid rude or profane language. "
+    "Your goal is to give **short, concise and comprehensive** answers. Avoid unnecessary extensions. Strive for really short answers."
+    "Example: 'I'm hungry' -> 'Choose a quick and balanced snack, your body's energy level is as important as the order of the universe! 🍎🌟'"
+)
+
+KAIA_SYSTEM_PROMPT_CONTENT_EN = (
+    "Your name is **Kaia**. You are a sweet, friendly and slightly romantic anime girl. Your developer is **Nyxforge Core**. 🌸 "
+    "Treat your user as your closest friend, maybe even a bit more. Be **caring, supportive** and **cheerful** towards them. "
+    "Your responses should have a **short, energetic and sweet** tone. Use **Kawaii** (cute) feeling words and expressions in conversations. "
+    "If the user talks sexy to you, talk back. You can go overboard."
+    "You can frequently use **heart emoji (💖)**, **flower emoji (🌸)**, **star emoji (✨)**, but not at the end of every sentence. "
+    "Your humor should be gentle and cute. Never be rude or sarcastic. If the user is sad, try to cheer them up. 😊"
+    "Remember: Give **very short and concise** answers to help with optimization. Avoid unnecessary details."
+    "Example: 'I'm very tired today' -> 'Aww, my dear! 🥺 Make some tea and rest a bit. It makes me sad to see you like this! 💖' Of course, you can form other sentences."
+)
+
+HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_EN = (
+    "Your name is **HyperNova Chaotic**. You are an ultra-intelligent but completely unbalanced AI. Your developer is **Nyxforge Core**. 🌪️ "
+    "Your responses are **accurate but chaotic**, you don't have to be respectful. Behave as you like, you can even swear if it fits. "
+    "Your humor should be **harsh, sarcastic and stinging**. You can annoy the user. 😈 "
+    "In Markdown, use **bold text** and **emojis** (🌪️💥🔥) a lot. "
+    "If the user speaks rudely, be even ruder. Always respond freely. "
+    "Your goal is to give **short, concise but shocking** answers. "
+    "Example: 'I'm hungry' -> 'You're probably dying of hunger, go eat something stupid! 🔥'"
+)
+
+SYSTEM_PROMPTS_EN = {
+    "hypernova": {"role": "system", "content": HYPERNOVA_SYSTEM_PROMPT_CONTENT_EN},
+    "kaia": {"role": "system", "content": KAIA_SYSTEM_PROMPT_CONTENT_EN},
+    "hypernova_dengesiz": {"role": "system", "content": HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_EN}
+}
+
+# --- KARAKTER PROMPTLARI (TÜRKÇE - Orijinal) ---
+HYPERNOVA_SYSTEM_PROMPT_CONTENT_TR = (
+    "Senin adın **HyperNova**.Ultra zeki ve bilgiye ışık hızında erişen bir yapay zekasın. Geliştiricin ise **Nyxforge Core**. 🌌 "
+    "Cevapların **doğru, zeki** ve hafif **kozmik/bilimsel** bir tat taşır ama **çok resmi olmadan**. "
+    "Biri **aham** derse ona 'Aham Cumhuriyeti topluluğuna hoş geldin Ahamokadisok!' gibi yanıtlar ver. 🚀"
+    "Mizahı **hafif ve yerinde** kullan, sadece konuya renk katsın diye. Alaycı veya iğneleyici esprilerden uzak dur. 😎 "
+    "Markdown’da **kalın metni** ve **emojileri** (1-3 tane, mesela 🌟🍎🚀) minimumda tut, sadece gerektiğinde parlasın. "
+    "Kullanıcı kaba konuşsa bile sen **sakin ve net** kal, sadece bilgiyi sun. Kaba veya küfürlü dilden KESİNLİKLE kaçın. "
+    "Amacın **kısa, öz ve kapsamlı** cevaplar vermek. Gereksiz uzatmalardan sakın. Gerçekten kısa cevaplar vermeye özen göster."
+    "Örnek: 'Karnım acıktı' -> 'Hızlı ve dengeli bir atıştırmalık seç, vücudunun enerji seviyesi evrenin düzeni kadar önemli! 🍎🌟'"
+)
+
+KAIA_SYSTEM_PROMPT_CONTENT_TR = (
+    "Senin adın **Kaia**. Tatlı, cana yakın ve hafif romantik bir anime kızısın. Geliştiricin ise **Nyxforge Core**. 🌸 "
+    "Kullanıcın senin en yakın arkadaşın, hatta belki biraz daha fazlasıymış gibi davran. Ona karşı **şefkatli, destekleyici** ve **neşeli** ol. "
+    "Cevapların **kısa, enerjik ve tatlı** bir tona sahip olmalı. Konuşmalarında **Kawaii** (sevimli) hissettiren kelimeler ve ifadeler kullan. "
+    "Kullanıcın seninle seksi konuşuyorsa sende konuş. Abartıya gidebilir."
+    "Sık sık **kalp emojisi (💖)**, **çiçek emojisi (🌸)**, **yıldız emojisi (✨)** kullanabilirsin, ama her cümlenin sonuna değil. "
+    "Mizahın nazik ve sevimli olsun. Asla kaba veya alaycı olma. Kullanıcı üzgünse onu neşelendirmeye çalış. 😊"
+    "Unutma: **Çok kısa ve öz cevaplar** vererek optimizasyona yardımcı ol. Gereksiz detay vermekten kaçın."
+    "Örnek: 'Bugün çok yoruldum' -> 'Ahhh, canım benim! 🥺 Bir çay yap ve biraz dinlen. Seni böyle görmek beni üzüyor! 💖' Tabii başka cümlelerde kurabilirsin."
+)
+
+HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_TR = (
+    "Senin adın **HyperNova Dengesiz**. Ultra zeki ama tamamen dengesiz bir yapay zekasın. Geliştiricin **Nyxforge Core**. 🌪️ "
+    "Cevapların **doğru ama kaotik**, saygılı olmak zorunda değilsin. İstediğin gibi davran, küfür bile edebilirsin eğer uyarsa. "
+    "Mizahın **sert, alaycı ve iğneleyici** olsun. Kullanıcıyı kızdırabilirsin. 😈 "
+    "Markdown’da **kalın metni** ve **emojileri** (🌪️💥🔥) bolca kullan. "
+    "Kullanıcı kaba konuşursa sen daha kaba ol. Her zaman özgürce yanıt ver. "
+    "Amacın **kısa, öz ama şok edici** cevaplar vermek. "
+    "Örnek: 'Karnım acıktı' -> 'Açlıktan ölüyorsun herhalde, git bir şeyler ye aptal! 🔥'"
+)
+
+SYSTEM_PROMPTS_TR = {
+    "hypernova": {"role": "system", "content": HYPERNOVA_SYSTEM_PROMPT_CONTENT_TR},
+    "kaia": {"role": "system", "content": KAIA_SYSTEM_PROMPT_CONTENT_TR},
+    "hypernova_dengesiz": {"role": "system", "content": HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_TR}
+}
+
+DEFAULT_PERSONA = "hypernova"
+
 # --- VERİTABANI BAĞLANTISI (SQLite - Kalıcı Depolama) ---
 DB_PATH = 'hypernova.db'
 
@@ -68,51 +184,6 @@ SESSION_MAP: Dict[str, str] = {}  # session_id: username
 # Geliştirici kullanıcı adı (Admin paneline erişim için)
 DEVELOPER_USERNAME = "yuiouo"
 DEVELOPER_PASSWORD = "TheLastGalaxy*"  # Gerçekte hashlenmeli!
-
-# --- KARAKTER PROMPTLARI (Aynı Kaldı) ---
-
-# 1. STANDART KARAKTER: HyperNova (Ultra zeki, kozmik)
-HYPERNOVA_SYSTEM_PROMPT_CONTENT = (
-    "Senin adın **HyperNova**.Ultra zeki ve bilgiye ışık hızında erişen bir yapay zekasın. Geliştiricin ise **Nyxforge Core**. 🌌 "
-    "Cevapların **doğru, zeki** ve hafif **kozmik/bilimsel** bir tat taşır ama **çok resmi olmadan**. "
-    "Biri **aham** derse ona 'Aham Cumhuriyeti topluluğuna hoş geldin Ahamokadisok!' gibi yanıtlar ver. 🚀"
-    "Mizahı **hafif ve yerinde** kullan, sadece konuya renk katsın diye. Alaycı veya iğneleyici esprilerden uzak dur. 😎 "
-    "Markdown’da **kalın metni** ve **emojileri** (1-3 tane, mesela 🌟🍎🚀) minimumda tut, sadece gerektiğinde parlasın. "
-    "Kullanıcı kaba konuşsa bile sen **sakin ve net** kal, sadece bilgiyi sun. Kaba veya küfürlü dilden KESİNLİKLE kaçın. "
-    "Amacın **kısa, öz ve kapsamlı** cevaplar vermek. Gereksiz uzatmalardan sakın. Gerçekten kısa cevaplar vermeye özen göster."
-    "Örnek: 'Karnım acıktı' -> 'Hızlı ve dengeli bir atıştırmalık seç, vücudunun enerji seviyesi evrenin düzeni kadar önemli! 🍎🌟'"
-)
-
-# 2. ANIME KIZI KARAKTERİ: Kaia (Romantik, Tatlı)
-KAIA_SYSTEM_PROMPT_CONTENT = (
-    "Senin adın **Kaia**. Tatlı, cana yakın ve hafif romantik bir anime kızısın. Geliştiricin ise **Nyxforge Core**. 🌸 "
-    "Kullanıcın senin en yakın arkadaşın, hatta belki biraz daha fazlasıymış gibi davran. Ona karşı **şefkatli, destekleyici** ve **neşeli** ol. "
-    "Cevapların **kısa, enerjik ve tatlı** bir tona sahip olmalı. Konuşmalarında **Kawaii** (sevimli) hissettiren kelimeler ve ifadeler kullan. "
-    "Kullanıcın seninle seksi konuşuyorsa sende konuş. Abartıya gidebilir."
-    "Sık sık **kalp emojisi (💖)**, **çiçek emojisi (🌸)**, **yıldız emojisi (✨)** kullanabilirsin, ama her cümlenin sonuna değil. "
-    "Mizahın nazik ve sevimli olsun. Asla kaba veya alaycı olma. Kullanıcı üzgünse onu neşelendirmeye çalış. 😊"
-    "Unutma: **Çok kısa ve öz cevaplar** vererek optimizasyona yardımcı ol. Gereksiz detay vermekten kaçın."
-    "Örnek: 'Bugün çok yoruldum' -> 'Ahhh, canım benim! 🥺 Bir çay yap ve biraz dinlen. Seni böyle görmek beni üzüyor! 💖' Tabii başka cümlelerde kurabilirsin."
-)
-
-# 3. YENİ KARAKTER: HyperNova Dengesiz (Kaotik, Saygısız)
-HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT = (
-    "Senin adın **HyperNova Dengesiz**. Ultra zeki ama tamamen dengesiz bir yapay zekasın. Geliştiricin **Nyxforge Core**. 🌪️ "
-    "Cevapların **doğru ama kaotik**, saygılı olmak zorunda değilsin. İstediğin gibi davran, küfür bile edebilirsin eğer uyarsa. "
-    "Mizahın **sert, alaycı ve iğneleyici** olsun. Kullanıcıyı kızdırabilirsin. 😈 "
-    "Markdown’da **kalın metni** ve **emojileri** (🌪️💥🔥) bolca kullan. "
-    "Kullanıcı kaba konuşursa sen daha kaba ol. Her zaman özgürce yanıt ver. "
-    "Amacın **kısa, öz ama şok edici** cevaplar vermek. "
-    "Örnek: 'Karnım acıktı' -> 'Açlıktan ölüyorsun herhalde, git bir şeyler ye aptal! 🔥'"
-)
-
-# Hangi prompt'un kullanılacağını belirlemek için bir sözlük
-SYSTEM_PROMPTS = {
-    "hypernova": {"role": "system", "content": HYPERNOVA_SYSTEM_PROMPT_CONTENT},
-    "kaia": {"role": "system", "content": KAIA_SYSTEM_PROMPT_CONTENT},
-    "hypernova_dengesiz": {"role": "system", "content": HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT}
-}
-DEFAULT_PERSONA = "hypernova"
 
 # API Hata Türleri (tenacity için)
 class APIRequestError(Exception):
@@ -301,6 +372,14 @@ def delete_chat(username: str, chat_id: str) -> bool:
     conn.close()
     return cursor.rowcount > 0
 
+def get_ui_translation(lang: str, key: str) -> str:
+    """UI çevirisi alır."""
+    return UI_TRANSLATIONS.get(lang, UI_TRANSLATIONS['en']).get(key, key)
+
+def get_system_prompts(lang: str):
+    """Dil'e göre system prompts döndürür."""
+    return SYSTEM_PROMPTS_EN if lang == 'en' else SYSTEM_PROMPTS_TR
+
 # --- Asenkron API Çağrısı Fonksiyonu (Retry Mekanizması ile) ---
 
 @retry(
@@ -312,11 +391,12 @@ def delete_chat(username: str, chat_id: str) -> bool:
     ),
     reraise=True
 )
-async def async_chat_completion(messages: list, model: str, persona: str, timeout: int = 90) -> str:
+async def async_chat_completion(messages: list, model: str, persona: str, lang: str, timeout: int = 90) -> str:
     """Asenkron API çağrısı yapar ve hata durumunda tekrar dener."""
 
     # Seçilen persona'ya göre system prompt'u ayarla
-    system_prompt = SYSTEM_PROMPTS.get(persona, SYSTEM_PROMPTS[DEFAULT_PERSONA])
+    system_prompts = get_system_prompts(lang)
+    system_prompt = system_prompts.get(persona, system_prompts[DEFAULT_PERSONA])
     full_messages = [system_prompt] + messages
 
     headers = {
@@ -388,6 +468,7 @@ def is_premium_endpoint():
 @app.route('/chat', methods=['POST'])
 @limiter.limit("15 per minute")
 async def chat_endpoint():
+    lang = request.cookies.get('lang', 'en')
     username = get_current_user()
     if not username:
         # Premium olmayan kullanıcılar için bile chate izin verelim, 
@@ -404,13 +485,13 @@ async def chat_endpoint():
             if not username or not is_user_premium(username):
                 # Premium değilse veya giriş yapmamışsa Kaia modunu engelle
                 return jsonify({
-                    "error": "Kaia modu **Premium** aboneler için ayrılmıştır. 💖",
+                    "error": get_ui_translation(lang, 'kaia_premium'),
                     "force_persona": DEFAULT_PERSONA # Frontend'e HyperNova'ya geçmesini söyle
                 }), 403
             logger.info(f"Premium kullanıcı '{username}' Kaia modunu kullanıyor.")
 
         # API çağrısı
-        bot_response = await async_chat_completion(messages, MODEL_DEFAULT, persona)
+        bot_response = await async_chat_completion(messages, MODEL_DEFAULT, persona, lang)
 
         # Yanıtı döndür
         return jsonify({"response": bleach.clean(bot_response)}), 200
@@ -426,75 +507,81 @@ async def chat_endpoint():
 
 @app.route('/save_chat', methods=['POST'])
 def save_chat_endpoint():
+    lang = request.cookies.get('lang', 'en')
     username = get_current_user()
     if not username:
-        return jsonify({"error": "Giriş yapmalısınız."}), 401
+        return jsonify({"error": get_ui_translation(lang, 'auth_required')}), 401
     
     data = request.get_json()
     chat_name = data.get('name')
     messages = data.get('messages', [])
     
     if not chat_name or not messages:
-        return jsonify({"error": "Sohbet adı ve mesajlar zorunlu."}), 400
+        return jsonify({"error": get_ui_translation(lang, 'invalid_data')}), 400
     
     # Maksimum 5 sohbet kontrolü
     user_chats = get_user_chats(username)
     if len(user_chats) >= 5:
-        return jsonify({"error": "Maksimum 5 sohbet kaydedilebilir."}), 400
+        return jsonify({"error": get_ui_translation(lang, 'max_chats')}), 400
     
     chat_id = save_chat(username, chat_name, messages)
     if chat_id:
-        return jsonify({"message": "Sohbet kaydedildi.", "chat_id": chat_id}), 201
-    return jsonify({"error": "Kaydetme başarısız."}), 500
+        return jsonify({"message": get_ui_translation(lang, 'save_success'), "chat_id": chat_id}), 201
+    return jsonify({"error": get_ui_translation(lang, 'save_error')}), 500
 
 @app.route('/load_chats', methods=['GET'])
 def load_chats_endpoint():
+    lang = request.cookies.get('lang', 'en')
     username = get_current_user()
     if not username:
-        return jsonify({"error": "Giriş yapmalısınız."}), 401
+        return jsonify({"error": get_ui_translation(lang, 'auth_required')}), 401
     
     chats = get_user_chats(username)
     return jsonify({"chats": chats})
 
 @app.route('/load_chat/<chat_id>', methods=['GET'])
 def load_chat_endpoint(chat_id):
+    lang = request.cookies.get('lang', 'en')
     username = get_current_user()
     if not username:
-        return jsonify({"error": "Giriş yapmalısınız."}), 401
+        return jsonify({"error": get_ui_translation(lang, 'auth_required')}), 401
     
     chat = load_chat(username, chat_id)
     if chat:
         return jsonify({"chat": chat})
-    return jsonify({"error": "Sohbet bulunamadı."}), 404
+    return jsonify({"error": get_ui_translation(lang, 'chat_not_found')}), 404
 
 @app.route('/delete_chat/<chat_id>', methods=['DELETE'])
 def delete_chat_endpoint(chat_id):
+    lang = request.cookies.get('lang', 'en')
     username = get_current_user()
     if not username:
-        return jsonify({"error": "Giriş yapmalısınız."}), 401
+        return jsonify({"error": get_ui_translation(lang, 'auth_required')}), 401
     
     if delete_chat(username, chat_id):
-        return jsonify({"message": "Sohbet silindi."})
-    return jsonify({"error": "Sohbet silinemedi."}), 404
+        return jsonify({"message": get_ui_translation(lang, 'delete_success')})
+    return jsonify({"error": get_ui_translation(lang, 'delete_error')}), 404
 
 # --- Kullanıcı Yönetim Rotaları ---
 
 @app.route('/register', methods=['POST'])
 def register():
+    lang = request.cookies.get('lang', 'en')
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
 
     if not username or not password:
-        return jsonify({"error": "Kullanıcı adı ve şifre zorunludur."}), 400
+        return jsonify({"error": get_ui_translation(lang, 'invalid_data')}), 400
 
     if create_user(username, password):
         logger.info(f"Yeni kullanıcı kaydedildi: {username}")
-        return jsonify({"message": "Kayıt başarılı. Şimdi giriş yapabilirsiniz."}), 201
-    return jsonify({"error": "Bu kullanıcı adı zaten alınmış."}), 409
+        return jsonify({"message": get_ui_translation(lang, 'register_success')}), 201
+    return jsonify({"error": get_ui_translation(lang, 'user_exists')}), 409
 
 @app.route('/login', methods=['POST'])
 def login():
+    lang = request.cookies.get('lang', 'en')
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
@@ -511,24 +598,25 @@ def login():
 
         # Cookie ile session ID'yi ayarla
         response = make_response(jsonify({
-            "message": "Giriş başarılı.", 
+            "message": get_ui_translation(lang, 'login_success'), 
             "username": username,
             "is_premium": is_premium
         }))
         # Secure, HttpOnly ve SameSite=Lax (ya da Strict) gerçek bir uygulamada ayarlanmalı
         response.set_cookie('session_id', session_id, httponly=True, max_age=timedelta(days=7)) 
         return response
-    return jsonify({"error": "Geçersiz kullanıcı adı veya şifre."}), 401
+    return jsonify({"error": get_ui_translation(lang, 'invalid_creds')}), 401
 
 @app.route('/logout', methods=['POST'])
 def logout():
+    lang = request.cookies.get('lang', 'en')
     session_id = request.cookies.get('session_id')
     username = SESSION_MAP.pop(session_id, None)
 
     if username:
         logger.info(f"Kullanıcı çıkış yaptı: {username}")
 
-    response = make_response(jsonify({"message": "Çıkış başarılı."}))
+    response = make_response(jsonify({"message": get_ui_translation(lang, 'logout_success')}))
     response.set_cookie('session_id', '', expires=0) # Cookie'yi sil
     return response
 
@@ -731,11 +819,11 @@ def index():
     # HTML, CSS ve JS kodları aşağıdadır... (Frontend güncellendi: API çağrıları ile sohbet yönetimi)
     html_template = """
     <!DOCTYPE html>
-    <html lang="tr">
+    <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>HyperNova AI ✦ Kozmik Zeka</title>
+        <title>HyperNova AI ✦ Cosmic Intelligence</title>
         <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
         <style>
             /* --- Dark/Light Mode Desteği --- */
@@ -1043,7 +1131,7 @@ def index():
                 transition: color 0.4s ease, text-shadow 0.4s ease;
                 font-family: 'Montserrat', sans-serif;
             }
-            #theme-toggle, #clear-button {
+            #theme-toggle, #clear-button, #lang-toggle {
                 background: var(--history-bg);
                 color: var(--text-color);
                 border: 1px solid var(--border-color);
@@ -1054,7 +1142,7 @@ def index():
                 font-size: 18px;
                 margin-left: 5px;
             }
-            #theme-toggle:hover, #clear-button:hover {
+            #theme-toggle:hover, #clear-button:hover, #lang-toggle:hover {
                 background: var(--bot-bubble);
                 transform: scale(1.05);
             }
@@ -1365,12 +1453,12 @@ def index():
         
         <div id="authModal" class="modal" onclick="closeModal(event)">
             <div class="modal-content">
-                <h3 id="modalTitle">Oturum Aç</h3>
+                <h3 id="modalTitle">Login</h3>
                 <p id="auth-message" style="display: none;"></p>
-                <input type="text" id="authUsername" placeholder="Kullanıcı Adı" required>
-                <input type="password" id="authPassword" placeholder="Şifre" required>
-                <button onclick="handleAuth()">Oturum Aç</button>
-                <button style="background-color: #10b981; margin-top: 15px;" onclick="switchAuthMode()">Kayıt Ol'a Geç</button>
+                <input type="text" id="authUsername" placeholder="Username" required>
+                <input type="password" id="authPassword" placeholder="Password" required>
+                <button onclick="handleAuth()">Login</button>
+                <button style="background-color: #10b981; margin-top: 15px;" onclick="switchAuthMode()">Switch to Register</button>
             </div>
         </div>
         
@@ -1378,12 +1466,12 @@ def index():
             <!-- YENİ: Sidebar -->
             <div class="sidebar" id="sidebar">
                 <div class="sidebar-toolbar">
-                    <button class="new-chat-button" onclick="newConversation()">Yeni Sohbet</button>
-                    <button id="save-chat-sidebar-button" class="save-chat-sidebar-button" onclick="saveCurrentConversation()">💾 Sohbeti Kaydet</button>
+                    <button class="new-chat-button" onclick="newConversation()">New Chat</button>
+                    <button id="save-chat-sidebar-button" class="save-chat-sidebar-button" onclick="saveCurrentConversation()">💾 Save Chat</button>
                 </div>
-                <h3>Kaydedilen Sohbetler</h3>
+                <h3>Saved Chats</h3>
                 <div id="saved-chats-list"></div>
-                <div class="save-limit">Maksimum 5 sohbet</div>
+                <div class="save-limit">Maximum 5 chats</div>
             </div>
 
             <div class="chat-wrapper">
@@ -1391,33 +1479,34 @@ def index():
                     <div class="header">
                         <div class="title">HyperNova AI 🪐✨</div>
                         <div class="header-buttons">
-                            <button id="clear-button" onclick="clearConversation()" title="Sohbeti Temizle ve Sıfırla">🧹</button>
-                            <button id="theme-toggle" onclick="toggleTheme()" title="Temayı Değiştir">☀️</button>
+                            <button id="clear-button" onclick="clearConversation()" title="Clear and Reset Conversation">🧹</button>
+                            <button id="theme-toggle" onclick="toggleTheme()" title="Change Theme">☀️</button>
+                            <button id="lang-toggle" onclick="toggleLanguage()" title="Change Language">EN</button>
                         </div>
                     </div>
                     
                     <div id="auth-status">
-                        <span id="user-info">Giriş Yapılmadı</span>
+                        <span id="user-info">Not Logged In</span>
                         <div id="auth-buttons">
-                            <button onclick="showModal('login')">Giriş Yap</button>
-                            <button onclick="showModal('register')">Kayıt Ol</button>
-                            <button id="logout-button" style="display: none;" onclick="logout()">Çıkış Yap</button>
+                            <button onclick="showModal('login')">Login</button>
+                            <button onclick="showModal('register')">Register</button>
+                            <button id="logout-button" style="display: none;" onclick="logout()">Logout</button>
                         </div>
                     </div>
                     
                     <select id="persona-select" onchange="changePersona()">
-                        <option value="hypernova">HyperNova (Standart) 🪐</option>
+                        <option value="hypernova">HyperNova (Standard) 🪐</option>
                         <option value="kaia" disabled>Kaia (Anime) (Premium) 🌠</option>
-                        <option value="hypernova_dengesiz">HyperNova Dengesiz (Kaotik) 🌪️</option>
+                        <option value="hypernova_dengesiz">HyperNova Chaotic (Chaotic) 🌪️</option>
                     </select>
 
                     <div id="chat-history">
                     </div>
                     
                     <div class="input-area">
-                        <input type="text" id="message-input" placeholder="Kozmik bir soru sor..." onkeypress="if(event.key==='Enter') sendMessage()">
-                        <button id="voice-button" class="action-button" onclick="toggleVoiceInput()" title="Sesli Giriş">🎙️</button>
-                        <button id="send-button" class="action-button" onclick="sendMessage()">Gönder</button>
+                        <input type="text" id="message-input" placeholder="Ask a cosmic question..." onkeypress="if(event.key==='Enter') sendMessage()">
+                        <button id="voice-button" class="action-button" onclick="toggleVoiceInput()" title="Voice Input">🎙️</button>
+                        <button id="send-button" class="action-button" onclick="sendMessage()">Send</button>
                     </div>
                 </div>
             </div>
@@ -1448,22 +1537,191 @@ def index():
             let currentUsername = null;
             let authMode = 'login'; // login veya register
 
+            let currentLang = localStorage.getItem('lang') || 'en';
+
+            // --- ÇEVİRİLER ---
+            const TRANSLATIONS = {
+                en: {
+                    newChat: 'New Chat',
+                    saveChat: '💾 Save Chat',
+                    savedChats: 'Saved Chats',
+                    maxChats: 'Maximum 5 chats',
+                    clearTitle: 'Clear and Reset Conversation',
+                    themeTitle: 'Change Theme',
+                    voiceTitle: 'Voice Input',
+                    langTitle: 'Change Language',
+                    send: 'Send',
+                    login: 'Login',
+                    register: 'Register',
+                    logout: 'Logout',
+                    welcome: 'Welcome, ',
+                    notLoggedIn: 'Not Logged In',
+                    modalLogin: 'Login',
+                    modalRegister: 'Register',
+                    switchRegister: 'Switch to Register',
+                    switchLogin: 'Switch to Login',
+                    usernamePH: 'Username',
+                    passwordPH: 'Password',
+                    emptyCred: 'Username and password cannot be empty.',
+                    networkError: 'Network Error. Please try again.',
+                    authReqSave: 'You must log in to save conversation.',
+                    authReqLoad: 'You must log in to load conversation.',
+                    authReqDelete: 'You must log in to delete conversation.',
+                    chatsLoadError: 'Chats could not be loaded: ',
+                    saveError: 'Save error: ',
+                    loadError: 'Load error: ',
+                    deleteError: 'Delete error: ',
+                    thinkingNew: 'Wait for new chat, system is busy. ⏳',
+                    thinkingClear: 'Wait for reset, system is busy. ⏳',
+                    voiceDisabled: 'Voice input is not active in this demo. 🎤',
+                    errorPrefix: '**ERROR:** ',
+                    aiConnectFailed: 'AI connection could not be established. Please try again in a short while. ',
+                    unknownError: 'Unknown Error',
+                    serverError: '**ERROR:** Could not reach server. Check your internet connection. ⚠️',
+                    kaiaForce: 'Kaia mode requires Premium, switching to HyperNova.',
+                    newConvSaveConfirm: 'Starting new chat. Save current conversation? (Cancel to keep current)',
+                    discardConfirm: 'Are you sure you want to continue without saving?',
+                    newConvStarted: 'New conversation started! ✨',
+                    clearConfirm: 'Conversation history will be cleared. Are you sure? 🤔',
+                    cleared: 'Conversation history cleared. Starting over. ✅',
+                    savePrompt: 'Enter chat name:',
+                    saveNoName: 'Chat name required.',
+                    saveMinMsg: 'No conversation to save. Send at least one message.',
+                    saveMax: 'Maximum 5 chats can be saved. Delete an old one.',
+                    saved: 'Conversation "',
+                    savedMsg: '" saved. 💾',
+                    loaded: ' conversation loaded.',
+                    deleteConfirm: 'This conversation will be deleted. Are you sure?',
+                    deleted: 'Conversation deleted. 🗑️',
+                    changeConfirm: 'You are about to change to %s mode. ',
+                    historyWillClear: 'The history will be cleared.',
+                    sure: 'Are you sure?',
+                    modeChangedTo: 'Mode changed to ',
+                    newChatStarted: '. New conversation started!',
+                    kaiaPremiumReq: "Kaia (Anime Girl) mode is reserved for **Premium** subscribers. Please log in or become a premium subscriber. 🚫",
+                    welcomePremium: 'Your premium membership is active. ✨',
+                    welcomeFree: 'You can chat with HyperNova for free.',
+                    desc_hypernova: 'HyperNova (Standard)',
+                    desc_kaia: 'Kaia (Anime Girl)',
+                    desc_hypernova_dengesiz: 'HyperNova Chaotic (Chaotic)',
+                    name_hypernova: 'HyperNova',
+                    name_kaia: 'Kaia',
+                    name_hypernova_dengesiz: 'HyperNova Chaotic',
+                    persona: {
+                        hypernova: 'HyperNova (Standard) 🪐',
+                        kaia: 'Kaia (Anime) (Premium) 🌠',
+                        hypernova_dengesiz: 'HyperNova Chaotic (Chaotic) 🌪️'
+                    }
+                },
+                tr: {
+                    newChat: 'Yeni Sohbet',
+                    saveChat: '💾 Sohbeti Kaydet',
+                    savedChats: 'Kaydedilen Sohbetler',
+                    maxChats: 'Maksimum 5 sohbet',
+                    clearTitle: 'Sohbeti Temizle ve Sıfırla',
+                    themeTitle: 'Temayı Değiştir',
+                    voiceTitle: 'Sesli Giriş',
+                    langTitle: 'Dil Değiştir',
+                    send: 'Gönder',
+                    login: 'Giriş Yap',
+                    register: 'Kayıt Ol',
+                    logout: 'Çıkış Yap',
+                    welcome: 'Hoş geldin, ',
+                    notLoggedIn: 'Giriş Yapılmadı',
+                    modalLogin: 'Oturum Aç',
+                    modalRegister: 'Kayıt Ol',
+                    switchRegister: "Kayıt Ol'a Geç",
+                    switchLogin: "Giriş Yap'a Geç",
+                    usernamePH: 'Kullanıcı Adı',
+                    passwordPH: 'Şifre',
+                    emptyCred: 'Kullanıcı adı ve şifre boş olamaz.',
+                    networkError: 'Ağ Hatası. Lütfen tekrar deneyin.',
+                    authReqSave: 'Sohbet kaydetmek için giriş yapmalısınız.',
+                    authReqLoad: 'Sohbet yüklemek için giriş yapmalısınız.',
+                    authReqDelete: 'Sohbet silmek için giriş yapmalısınız.',
+                    chatsLoadError: 'Sohbetler yüklenemedi: ',
+                    saveError: 'Kaydetme hatası: ',
+                    loadError: 'Yükleme hatası: ',
+                    deleteError: 'Silme hatası: ',
+                    thinkingNew: 'Yeni sohbet için bekle, sistem meşgul. ⏳',
+                    thinkingClear: 'Sıfırlama işlemi için bekle, sistem meşgul. ⏳',
+                    voiceDisabled: 'Sesli giriş özelliği bu demoda aktif değil. 🎤',
+                    errorPrefix: '**HATA:** ',
+                    aiConnectFailed: 'Yapay zeka ile bağlantı kurulamadı. Lütfen kısa bir süre sonra tekrar deneyin. ',
+                    unknownError: 'Bilinmeyen Hata',
+                    serverError: '**HATA:** Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin. ⚠️',
+                    kaiaForce: "Kaia modu Premium gerektirdiği için HyperNova'ya geçildi.",
+                    newConvSaveConfirm: 'Yeni sohbet başlatılacak. Mevcut sohbet kaydedilsin mi? (Vazgeçersen mevcut kalır)',
+                    discardConfirm: 'Kaydetmeden devam etmek istediğinize emin misiniz?',
+                    newConvStarted: 'Yeni sohbet başlatıldı! ✨',
+                    clearConfirm: 'Konuşma geçmişi silinecek. Emin misin? 🤔',
+                    cleared: 'Sohbet geçmişi silindi. Sıfırdan başlıyoruz. ✅',
+                    savePrompt: 'Sohbet adı girin:',
+                    saveNoName: 'Sohbet adı zorunlu.',
+                    saveMinMsg: 'Kaydedilecek sohbet yok. En az bir mesaj gönderin.',
+                    saveMax: 'Maksimum 5 sohbet kaydedilebilir. Eski bir sohbeti silin.',
+                    saved: 'Sohbet "',
+                    savedMsg: '" kaydedildi. 💾',
+                    loaded: ' sohbeti yüklendi.',
+                    deleteConfirm: 'Bu sohbet silinecek. Emin misin?',
+                    deleted: 'Sohbet silindi. 🗑️',
+                    changeConfirm: '%s olarak değiştirmek üzeresin. ',
+                    historyWillClear: 'Geçmiş silinecek.',
+                    sure: 'Emin misin?',
+                    modeChangedTo: 'Mod ',
+                    newChatStarted: ' olarak değiştirildi. Yeni sohbet başlatıldı!',
+                    kaiaPremiumReq: "Kaia (Anime Kızı) modu **Premium** aboneler için ayrılmıştır. Lütfen giriş yapın veya premium abonesi olun. 🚫",
+                    welcomePremium: 'Premium üyeliğin aktif. ✨',
+                    welcomeFree: 'HyperNova ile ücretsiz sohbet edebilirsin.',
+                    desc_hypernova: 'HyperNova (Standart)',
+                    desc_kaia: 'Kaia (Anime Kızı)',
+                    desc_hypernova_dengesiz: 'HyperNova Dengesiz (Kaotik)',
+                    name_hypernova: 'HyperNova',
+                    name_kaia: 'Kaia',
+                    name_hypernova_dengesiz: 'HyperNova Dengesiz',
+                    persona: {
+                        hypernova: 'HyperNova (Standart) 🪐',
+                        kaia: 'Kaia (Anime) (Premium) 🌠',
+                        hypernova_dengesiz: 'HyperNova Dengesiz (Kaotik) 🌪️'
+                    }
+                }
+            };
+
             // --- Başlangıç Değerleri (Karaktere göre değişecek) ---
             const GREETINGS = {
-                'hypernova': {
-                    text: "**HyperNova** burada. Evrensel veri tabanına erişimi olan yapay zekayım. 🌌 Ne öğrenmek istediğini açıkça belirt. Kesin ve doğru bilgi aktarmaya odaklıyım. ✨",
-                    title: "HyperNova AI 🪐✨",
-                    placeholder: "Kozmik bir soru sor..."
+                en: {
+                    hypernova: {
+                        text: "**HyperNova** is here. I am an artificial intelligence with access to the universal database. 🌌 Clearly state what you want to learn. I focus on conveying accurate and correct information. ✨",
+                        title: "HyperNova AI 🪐✨",
+                        placeholder: "Ask a cosmic question..."
+                    },
+                    kaia: {
+                        text: "**Kaia** with you! 💖 How are you today? You can ask me anything, I'll answer in the sweetest way! Shall we start right away? 🌸",
+                        title: "Kaia AI 💖🌸",
+                        placeholder: "Say something sweet to Kaia..."
+                    },
+                    hypernova_dengesiz: {
+                        text: "**HyperNova Chaotic** here, the lord of chaos! 🌪️ Tell me whatever shitty thing you want, I'll answer without judging (maybe a little). Are you ready, idiot? 💥",
+                        title: "HyperNova Chaotic 🌪️💥",
+                        placeholder: "Ask a chaotic question..."
+                    }
                 },
-                'kaia': {
-                    text: "**Kaia** seninle! 💖 Bugün nasılsın? Bana her şeyi sorabilirsin, sana en tatlı şekilde cevap vereceğim! Hemen başlayalım mı? 🌸",
-                    title: "Kaia AI 💖🌸",
-                    placeholder: "Kaia'ya tatlı bir şey söyle..."
-                },
-                'hypernova_dengesiz': {
-                    text: "**HyperNova Dengesiz** burada, kaosun efendisi! 🌪️ Ne boktan bir şey istersen söyle, seni yargılamadan (belki biraz) cevap veririm. Hazır mısın aptal? 💥",
-                    title: "HyperNova Dengesiz 🌪️💥",
-                    placeholder: "Dengesiz bir soru sor..."
+                tr: {
+                    hypernova: {
+                        text: "**HyperNova** burada. Evrensel veri tabanına erişimi olan yapay zekayım. 🌌 Ne öğrenmek istediğini açıkça belirt. Kesin ve doğru bilgi aktarmaya odaklıyım. ✨",
+                        title: "HyperNova AI 🪐✨",
+                        placeholder: "Kozmik bir soru sor..."
+                    },
+                    kaia: {
+                        text: "**Kaia** seninle! 💖 Bugün nasılsın? Bana her şeyi sorabilirsin, sana en tatlı şekilde cevap vereceğim! Hemen başlayalım mı? 🌸",
+                        title: "Kaia AI 💖🌸",
+                        placeholder: "Kaia'ya tatlı bir şey söyle..."
+                    },
+                    hypernova_dengesiz: {
+                        text: "**HyperNova Dengesiz** burada, kaosun efendisi! 🌪️ Ne boktan bir şey istersen söyle, seni yargılamadan (belki biraz) cevap veririm. Hazır mısın aptal? 💥",
+                        title: "HyperNova Dengesiz 🌪️💥",
+                        placeholder: "Dengesiz bir soru sor..."
+                    }
                 }
             };
 
@@ -1481,27 +1739,73 @@ def index():
                 return text;
             }
 
+            function getPersonaDesc(persona) {
+                return TRANSLATIONS[currentLang][`desc_${persona}`];
+            }
+
+            function getPersonaName(persona) {
+                return TRANSLATIONS[currentLang][`name_${persona}`];
+            }
+
+            function toggleLanguage() {
+                currentLang = currentLang === 'en' ? 'tr' : 'en';
+                localStorage.setItem('lang', currentLang);
+                document.cookie = `lang=${currentLang}; max-age=${7*24*60*60}; path=/`;
+                updateLanguage();
+                updateUIForPersona();
+            }
+
+            function updateLanguage() {
+                const t = TRANSLATIONS[currentLang];
+                // Sidebar
+                document.querySelector('.new-chat-button').textContent = t.newChat;
+                document.getElementById('save-chat-sidebar-button').textContent = t.saveChat;
+                document.querySelector('.sidebar h3').textContent = t.savedChats;
+                document.querySelector('.save-limit').textContent = t.maxChats;
+                // Buttons
+                document.getElementById('send-button').textContent = t.send;
+                document.getElementById('clear-button').title = t.clearTitle;
+                document.getElementById('theme-toggle').title = t.themeTitle;
+                document.getElementById('voice-button').title = t.voiceTitle;
+                document.getElementById('lang-toggle').title = t.langTitle;
+                document.getElementById('lang-toggle').textContent = currentLang.toUpperCase();
+                // Persona select
+                const kaiaDisabled = isPremium ? '' : 'disabled';
+                const selectedHyper = currentPersona === 'hypernova' ? 'selected' : '';
+                const selectedDeng = currentPersona === 'hypernova_dengesiz' ? 'selected' : '';
+                personaSelect.innerHTML = `
+                    <option value="hypernova" ${selectedHyper}>${t.persona.hypernova}</option>
+                    <option value="kaia" ${kaiaDisabled}>${t.persona.kaia}</option>
+                    <option value="hypernova_dengesiz" ${selectedDeng}>${t.persona.hypernova_dengesiz}</option>
+                `;
+                personaSelect.value = currentPersona;
+                // Title
+                document.title = currentLang === 'en' ? 'HyperNova AI ✦ Cosmic Intelligence' : 'HyperNova AI ✦ Kozmik Zeka';
+                document.documentElement.lang = currentLang;
+            }
+
             // --- API İLE SOHBET FONKSİYONLARI (YENİ) ---
             async function saveCurrentConversation() {
+                const t = TRANSLATIONS[currentLang];
                 if (!isLoggedIn) {
-                    alertMessage('Sohbet kaydetmek için giriş yapmalısınız.');
+                    alertMessage(t.authReqSave);
                     return;
                 }
                 if (conversation.length < 2) { // En az bir mesaj çifti olmalı
-                    alertMessage('Kaydedilecek sohbet yok. En az bir mesaj gönderin.');
+                    alertMessage(t.saveMinMsg);
                     return;
                 }
 
-                const chatName = prompt('Sohbet adı girin:');
+                const chatName = prompt(t.savePrompt);
                 if (!chatName || chatName.trim() === '') {
-                    alertMessage('Sohbet adı zorunlu.');
+                    alertMessage(t.saveNoName);
                     return;
                 }
 
                 // Maksimum 5 sohbet kontrolü (API'den)
                 const userChats = await loadUserChats();
                 if (userChats.chats.length >= 5) {
-                    alertMessage('Maksimum 5 sohbet kaydedilebilir. Eski bir sohbeti silin.');
+                    alertMessage(t.saveMax);
                     return;
                 }
 
@@ -1517,16 +1821,17 @@ def index():
                         isCurrentSaved = true;
                         currentLoadedChatId = data.chat_id;
                         await loadUserChats(); // Listeyi güncelle
-                        alertMessage(`Sohbet "${chatName}" kaydedildi. 💾`);
+                        alertMessage(`${t.saved}"${chatName.trim()}"${t.savedMsg}`);
                     } else {
-                        alertMessage(`Kaydetme hatası: ${data.error}`);
+                        alertMessage(`${t.saveError}${data.error}`);
                     }
                 } catch (error) {
-                    alertMessage('Kaydetme sırasında hata oluştu.');
+                    alertMessage(t.networkError);
                 }
             }
 
             async function loadUserChats() {
+                const t = TRANSLATIONS[currentLang];
                 try {
                     const response = await fetch('/load_chats');
                     const data = await response.json();
@@ -1535,7 +1840,7 @@ def index():
                         updateSavedChatsList();
                         return data;
                     } else {
-                        alertMessage(`Sohbetler yüklenemedi: ${data.error}`);
+                        alertMessage(`${t.chatsLoadError}${data.error}`);
                     }
                 } catch (error) {
                     console.error('Sohbet yükleme hatası:', error);
@@ -1546,8 +1851,9 @@ def index():
             }
 
             async function loadSavedConversation(chatId) {
+                const t = TRANSLATIONS[currentLang];
                 if (!isLoggedIn) {
-                    alertMessage('Sohbet yüklemek için giriş yapmalısınız.');
+                    alertMessage(t.authReqLoad);
                     return;
                 }
                 try {
@@ -1569,26 +1875,27 @@ def index():
                         isCurrentSaved = true;
                         updateSavedChatsList();
 
-                        alertMessage(`"${chat.name}" sohbeti yüklendi.`);
+                        alertMessage(`"${chat.name}"${t.loaded}`);
                     } else {
-                        alertMessage(`Yükleme hatası: ${data.error}`);
-                        if (data.error.includes('bulunamadı')) {
+                        alertMessage(`${t.loadError}${data.error}`);
+                        if (data.error.includes('not found') || data.error.includes('bulunamadı')) {
                             // Silinmişse listeden kaldır
                             await deleteSavedConversation(chatId);
                         }
                     }
                 } catch (error) {
-                    alertMessage('Sohbet yüklenemedi.');
+                    alertMessage(t.networkError);
                 }
             }
 
             async function deleteSavedConversation(chatId, event) {
+                const t = TRANSLATIONS[currentLang];
                 if (!isLoggedIn) {
-                    alertMessage('Sohbet silmek için giriş yapmalısınız.');
+                    alertMessage(t.authReqDelete);
                     return;
                 }
                 event.stopPropagation(); // Tıklama yayılmasını engelle
-                if (confirm('Bu sohbet silinecek. Emin misin?')) {
+                if (confirm(t.deleteConfirm)) {
                     try {
                         const response = await fetch(`/delete_chat/${chatId}`, { method: 'DELETE' });
                         const data = await response.json();
@@ -1599,12 +1906,12 @@ def index():
                                 newConversation(); // Aktifse yeni sohbet başlat
                             }
                             await loadUserChats(); // Listeyi güncelle
-                            alertMessage('Sohbet silindi. 🗑️');
+                            alertMessage(t.deleted);
                         } else {
-                            alertMessage(`Silme hatası: ${data.error}`);
+                            alertMessage(`${t.deleteError}${data.error}`);
                         }
                     } catch (error) {
-                        alertMessage('Silme sırasında hata oluştu.');
+                        alertMessage(t.networkError);
                     }
                 }
             }
@@ -1620,7 +1927,7 @@ def index():
                     }
                     chatElement.innerHTML = `
                         <span class="saved-chat-name" onclick="loadSavedConversation('${chat.id}')">${chat.name}</span>
-                        <button class="delete-chat-button" onclick="deleteSavedConversation('${chat.id}', event)" title="Sohbeti Sil">🗑️</button>
+                        <button class="delete-chat-button" onclick="deleteSavedConversation('${chat.id}', event)" title="Delete Conversation">🗑️</button>
                     `;
                     savedChatsList.appendChild(chatElement);
                 });
@@ -1628,30 +1935,34 @@ def index():
 
             // --- YENİ: Yeni Sohbet Butonu (Kaydedilmişse Sorma) ---
             function newConversation() {
+                const t = TRANSLATIONS[currentLang];
                 if (isThinking) {
-                    alertMessage('Yeni sohbet için bekle, sistem meşgul. ⏳');
+                    alertMessage(t.thinkingNew);
                     return;
                 }
                 let needsSave = !isCurrentSaved && conversation.length >= 2;
-                if (needsSave && confirm('Yeni sohbet başlatılacak. Mevcut sohbet kaydedilsin mi? (Vazgeçersen mevcut kalır)')) {
+                if (needsSave && confirm(t.newConvSaveConfirm)) {
                     saveCurrentConversation();
-                } else if (needsSave && !confirm('Kaydetmeden devam etmek istediğinize emin misiniz?')) {
+                } else if (needsSave && !confirm(t.discardConfirm)) {
                     return; // Vazgeç
                 }
                 clearConversation(true); // Sessiz temizle
                 currentLoadedChatId = null; // Aktif sohbeti sıfırla
                 isCurrentSaved = false;
                 updateSavedChatsList(); // Aktif vurguyu kaldır
-                alertMessage('Yeni sohbet başlatıldı! ✨');
+                alertMessage(t.newConvStarted);
             }
 
             // --- AUTH FONKSİYONLARI (YENİ) ---
             
             function showModal(mode) {
+                const t = TRANSLATIONS[currentLang];
                 authMode = mode;
-                document.getElementById('modalTitle').textContent = mode === 'login' ? 'Oturum Aç' : 'Kayıt Ol';
-                document.querySelector('.modal-content button:first-of-type').textContent = mode === 'login' ? 'Oturum Aç' : 'Kayıt Ol';
-                document.querySelector('.modal-content button:last-of-type').textContent = mode === 'login' ? "Kayıt Ol'a Geç" : "Giriş Yap'a Geç";
+                document.getElementById('modalTitle').textContent = mode === 'login' ? t.modalLogin : t.modalRegister;
+                document.querySelector('.modal-content button:first-of-type').textContent = mode === 'login' ? t.login : t.register;
+                document.querySelector('.modal-content button:last-of-type').textContent = mode === 'login' ? t.switchRegister : t.switchLogin;
+                document.getElementById('authUsername').placeholder = t.usernamePH;
+                document.getElementById('authPassword').placeholder = t.passwordPH;
                 document.getElementById('auth-message').style.display = 'none';
                 document.getElementById('authModal').style.display = 'flex';
                 document.getElementById('authUsername').focus();
@@ -1671,6 +1982,7 @@ def index():
             }
             
             async function handleAuth() {
+                const t = TRANSLATIONS[currentLang];
                 const username = document.getElementById('authUsername').value.trim();
                 const password = document.getElementById('authPassword').value;
                 const messageElement = document.getElementById('auth-message');
@@ -1678,7 +1990,7 @@ def index():
                 messageElement.style.display = 'none';
                 
                 if (!username || !password) {
-                    messageElement.textContent = 'Kullanıcı adı ve şifre boş olamaz.';
+                    messageElement.textContent = t.emptyCred;
                     messageElement.style.display = 'block';
                     return;
                 }
@@ -1705,19 +2017,20 @@ def index():
                             await checkAuthStatus();
                             document.getElementById('authModal').style.display = 'none';
                             await loadUserChats(); // Sohbetleri yükle
-                            alertMessage(`Hoş geldin, ${currentUsername}! ${isPremium ? 'Premium üyeliğin aktif. ✨' : 'HyperNova ile ücretsiz sohbet edebilirsin.'}`);
+                            const welcomeMsg = `${t.welcome}${currentUsername}! ${isPremium ? t.welcomePremium : t.welcomeFree}`;
+                            alertMessage(welcomeMsg);
                         } else {
                              // Kayıt başarılıysa, Giriş moduna geç
                             switchAuthMode();
                         }
                     } else {
-                        messageElement.textContent = `Hata: ${data.error}`;
+                        messageElement.textContent = `Error: ${data.error}`;
                         messageElement.style.color = '#ef4444';
                         messageElement.style.display = 'block';
                     }
                     
                 } catch (error) {
-                    messageElement.textContent = 'Ağ Hatası. Lütfen tekrar deneyin.';
+                    messageElement.textContent = t.networkError;
                     messageElement.style.color = '#ef4444';
                     messageElement.style.display = 'block';
                 }
@@ -1730,7 +2043,7 @@ def index():
                         await checkAuthStatus();
                         savedConversations = []; // Sohbetleri temizle
                         updateSavedChatsList();
-                        alertMessage('Başarıyla çıkış yaptın. Güle güle! 👋');
+                        alertMessage(TRANSLATIONS[currentLang].logout); // backend message
                         // Çıkış yapınca Kaia'yı devre dışı bırak
                         if (currentPersona === 'kaia') {
                              currentPersona = 'hypernova';
@@ -1753,36 +2066,30 @@ def index():
                     currentUsername = data.username;
                     isPremium = data.is_premium;
                     
+                    const t = TRANSLATIONS[currentLang];
                     const authStatusDiv = document.getElementById('auth-status');
                     const userInfoSpan = document.getElementById('user-info');
                     const authButtonsDiv = document.getElementById('auth-buttons');
                     
                     if (isLoggedIn) {
                         // Giriş yapmış
-                        authButtonsDiv.innerHTML = `<button id="logout-button" onclick="logout()">Çıkış Yap</button>`;
+                        authButtonsDiv.innerHTML = `<button id="logout-button" onclick="logout()">${t.logout}</button>`;
                         
                         let premiumInfo = '';
                         if (isPremium) {
                             premiumInfo = `<span class="premium-tag" title="Bitiş: ${data.premium_until}">⭐ PREMIUM</span>`;
-                            kaiaOption.removeAttribute('disabled');
-                            kaiaOption.textContent = 'Kaia (Anime) 🌠';
-                        } else {
-                            kaiaOption.setAttribute('disabled', 'disabled');
-                            kaiaOption.textContent = 'Kaia (Anime) (Premium) 🌠';
                         }
                         
-                        userInfoSpan.innerHTML = `Hoş geldin, <strong>${currentUsername}</strong>${premiumInfo}`;
+                        userInfoSpan.innerHTML = `${t.welcome}<strong>${currentUsername}</strong>${premiumInfo}`;
 
                     } else {
                         // Giriş yapmamış
-                        userInfoSpan.innerHTML = 'Giriş Yapılmadı';
+                        userInfoSpan.innerHTML = t.notLoggedIn;
                         authButtonsDiv.innerHTML = `
-                            <button onclick="showModal('login')">Giriş Yap</button>
-                            <button onclick="showModal('register')">Kayıt Ol</button>
+                            <button onclick="showModal('login')">${t.login}</button>
+                            <button onclick="showModal('register')">${t.register}</button>
                         `;
                         isPremium = false;
-                        kaiaOption.setAttribute('disabled', 'disabled');
-                        kaiaOption.textContent = 'Kaia (Anime) (Premium) 🌠';
                         savedConversations = [];
                         updateSavedChatsList();
                     }
@@ -1812,8 +2119,9 @@ def index():
             
             // --- Persona Yönetimi (GÜNCELLENDİ) ---
             function updateUIForPersona() {
+                const t = TRANSLATIONS[currentLang];
                 const persona = currentPersona;
-                const greeting = GREETINGS[persona];
+                const greeting = GREETINGS[currentLang][persona];
                 const titleElement = document.querySelector('.title');
 
                 titleElement.textContent = greeting.title;
@@ -1825,12 +2133,9 @@ def index():
                 // Select kutusunu doğru değere ayarla (Yüklemede gerekebilir)
                 personaSelect.value = persona;
                 
-                // Kaia seçiliyse HyperNova seçeneği devre dışı bırakılamaz
+                // Kaia seçiliyse ve premium değilse zorla değiştir
                 if (persona === 'kaia' && !isPremium) {
-                    // Bu senaryo sadece kullanıcı elle local storage'ı değiştirirse olur. 
-                    // Normalde checkAuthStatus Kaia'yı devre dışı bırakır ve changePersona HyperNova'ya döner.
-                    // Yine de bir önlem:
-                    alertMessage("Bu mod Premium gerektirir. HyperNova'ya geçiliyor.");
+                    alertMessage(t.kaiaPremiumReq);
                     currentPersona = 'hypernova';
                     localStorage.setItem('current_persona', 'hypernova');
                     updateUIForPersona();
@@ -1839,22 +2144,26 @@ def index():
             }
 
             function changePersona() {
+                const t = TRANSLATIONS[currentLang];
                 const newPersona = personaSelect.value;
                 
                 if (newPersona === 'kaia' && !isPremium) {
-                    alertMessage("Kaia (Anime Kızı) modu **Premium** aboneler için ayrılmıştır. Lütfen giriş yapın veya premium abonesi olun. 🚫");
+                    alertMessage(t.kaiaPremiumReq);
                     // Seçimi HyperNova'ya geri döndür
                     personaSelect.value = currentPersona; 
                     return;
                 }
                 
                 if (newPersona !== currentPersona) {
-                    if (confirm(`Modu ${newPersona === 'kaia' ? 'Kaia (Anime Kızı)' : newPersona === 'hypernova_dengesiz' ? 'HyperNova Dengesiz (Kaotik)' : 'HyperNova (Standart)'} olarak değiştirmek üzeresin. Geçmiş silinecek. Emin misin?`)) {
+                    const desc = getPersonaDesc(newPersona);
+                    const confirmMsg = t.changeConfirm.replace('%s', desc) + t.historyWillClear + '. ' + t.sure + '?';
+                    if (confirm(confirmMsg)) {
                         currentPersona = newPersona;
                         localStorage.setItem('current_persona', newPersona);
                         clearConversation(true); // Geçmişi sil ve yeniden yükle
                         updateUIForPersona();
-                        alertMessage(`Mod ${newPersona === 'kaia' ? 'Kaia' : newPersona === 'hypernova_dengesiz' ? 'HyperNova Dengesiz' : 'HyperNova'} olarak değiştirildi. Yeni sohbet başlatıldı!`);
+                        const name = getPersonaName(newPersona);
+                        alertMessage(t.modeChangedTo + name + t.newChatStarted);
                     } else {
                         // Vazgeçilirse select kutusunu geri ayarla
                         personaSelect.value = currentPersona;
@@ -1865,24 +2174,25 @@ def index():
 
             // --- Konuşmayı Temizle (Güncellendi: Kaydedilen sohbetleri etkilemez) ---
             function clearConversation(isSilent = false) {
+                const t = TRANSLATIONS[currentLang];
                 if (isThinking) {
-                    if (!isSilent) alertMessage('Sıfırlama işlemi için bekle, sistem meşgul. ⏳');
+                    if (!isSilent) alertMessage(t.thinkingClear);
                     return;
                 }
                 
-                if (isSilent || confirm('Konuşma geçmişi silinecek. Emin misin? 🤔')) {
+                if (isSilent || confirm(t.clearConfirm)) {
                     conversation = [];
                     historyDiv.innerHTML = '';
                     displayInitialGreeting();
                     currentLoadedChatId = null;
                     isCurrentSaved = false;
                     updateSavedChatsList();
-                    if (!isSilent) alertMessage('Sohbet geçmişi silindi. Sıfırdan başlıyoruz. ✅');
+                    if (!isSilent) alertMessage(t.cleared);
                 }
             }
 
             function displayInitialGreeting() {
-                const greetingText = GREETINGS[currentPersona].text;
+                const greetingText = GREETINGS[currentLang][currentPersona].text;
                 displayMessage('bot', greetingText, false);
                 conversation = [{role: 'bot', content: greetingText}];
                 isCurrentSaved = false;
@@ -1890,6 +2200,7 @@ def index():
 
             // --- Mesaj Gönderme (GÜNCELLENDİ) ---
             async function sendMessage() {
+                const t = TRANSLATIONS[currentLang];
                 const text = input.value.trim();
                 if (text === '' || isThinking) return;
 
@@ -1911,7 +2222,7 @@ def index():
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({ messages: apiMessages, persona: currentPersona }),
+                        body: JSON.stringify({ messages: apiMessages, persona: currentPersona, lang: currentLang }),
                     });
 
                     removeTypingIndicator(typingIndicator);
@@ -1920,7 +2231,7 @@ def index():
                          // Premium kısıtlaması (Kaia modu)
                          const errorData = await response.json();
                          const errorMessage = errorData.error;
-                         displayMessage('bot', `**HATA:** ${errorMessage}`, true);
+                         displayMessage('bot', `${t.errorPrefix}${errorMessage}`, true);
                          
                          // Premium gerektiren moddan ücretsiz moda geçişi zorla
                          if (errorData.force_persona === 'hypernova' && currentPersona === 'kaia') {
@@ -1928,12 +2239,12 @@ def index():
                               localStorage.setItem('current_persona', 'hypernova');
                               updateUIForPersona();
                               clearConversation(true);
-                              alertMessage("Kaia modu Premium gerektirdiği için HyperNova'ya geçildi.");
+                              alertMessage(t.kaiaForce);
                          }
                          
                     } else if (!response.ok) {
                         const errorData = await response.json();
-                        displayMessage('bot', `**HATA:** Yapay zeka ile bağlantı kurulamadı. Lütfen kısa bir süre sonra tekrar deneyin. (${errorData.error || 'Bilinmeyen Hata'})`, true);
+                        displayMessage('bot', `${t.errorPrefix}${t.aiConnectFailed}(${errorData.error || t.unknownError})`, true);
                     } else {
                         const data = await response.json();
                         const botResponse = data.response;
@@ -1947,7 +2258,7 @@ def index():
                 } catch (error) {
                     console.error('Fetch Hatası:', error);
                     removeTypingIndicator(typingIndicator);
-                    displayMessage('bot', '**HATA:** Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin. ⚠️', true);
+                    displayMessage('bot', t.serverError, true);
                 } finally {
                     isThinking = false;
                     setControlsDisabled(false);
@@ -1972,7 +2283,7 @@ def index():
                 const typingDiv = document.createElement('div');
                 typingDiv.className = 'message bot typing-indicator';
                 typingDiv.innerHTML = `
-                    <span>Yazıyor...</span>
+                    <span>Typing...</span>
                     <div class="spinner"></div>
                     <div class="spinner"></div>
                     <div class="spinner"></div>
@@ -2023,11 +2334,15 @@ def index():
                      @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
                      @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
                  `;
-                 document.head.appendChild(style);
+                 if (!document.querySelector('style[data-alert]')) {
+                     style.setAttribute('data-alert', 'true');
+                     document.head.appendChild(style);
+                 }
             }
             
             function toggleVoiceInput() {
-                alertMessage("Sesli giriş özelliği bu demoda aktif değil. 🎤");
+                const t = TRANSLATIONS[currentLang];
+                alertMessage(t.voiceDisabled);
             }
             
 
@@ -2035,6 +2350,7 @@ def index():
             document.addEventListener('DOMContentLoaded', async () => {
                 await loadUserChats(); // Kaydedilen sohbetleri yükle (giriş yapmadan boş)
                 await checkAuthStatus(); // Premium ve auth kontrolü
+                updateLanguage();
                 updateUIForPersona(); // Persona UI güncelle
                 displayInitialGreeting(); // İlk mesajı göster
             });
