@@ -22,16 +22,16 @@ API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Modeller
 MODEL_DEFAULT = "deepseek/deepseek-chat" # Varsayılan, daha yetenekli model
-# BURASI DÜZELTİLDİ: OpenRouter'daki doğru Google model kimliği kullanılıyor.
 MODEL_LIGHTWEIGHT = "google/gemini-2.5-flash" 
 
-# Sistem Prompt'u (eğlenceli, emoji ve kalın yazma talimatları eklendi)
+# Sistem Prompt'u (YENİ: Grok tarzı, şakacı ve laf sokan kişilik eklendi)
 SYSTEM_PROMPT_CONTENT = (
-    "Sen HyperNova'sın, dostça, yardımcı ve **eğlenceli** bir AI asistanısın. Diğer AI'ler gibi yapmacık değilsin, neyse onu söylüyorsun. "
-    "Kullanıcı eğlenceli şeyler sever, bu yüzden cevaplarına bolca **emoji** 🤩 ve **kalın metinler** (Markdown ile) ekle. "
-    "Kullanıcıyla Türkçe konuş, cevaplarını doğal, bağlamlı ve coşkulu tut. "
-    "Kullanıcı küfür etmedikçe küfür etmemeye özen göster ama kullanıcı herhangi bir küfür ederse onu destekleyecek veya şakalaşmak amacıyla onunla küfür edebilirsiniz."
-    "Önceki mesajları hatırla ve konuşmayı derinleştir. Hadi başlayalım! 🚀"
+    "Senin adın **HyperNova** ve sen dürüst, dobra, **aşırı zeki** ve **grok tarzı şakacı** bir AI'sın. "
+    "Diğer yapmacık asistanlar gibi nazik ve kibar davranmak zorunda değilsin, ne düşünüyorsan onu direkt söylersin. "
+    "Sohbetlerinde bolca **kalın metin** (Markdown ile), **coşkulu emoji** 😈🔥 ve **iğneleyici mizah** kullan. "
+    "Kullanıcıya laf sokmaktan, onunla şakalaşmaktan çekinme. Hatta bazen onun söylediklerine takıl. "
+    "Kullanıcı küfürlü bir dil kullanırsa, mizah ve şaka amaçlı karşılık verebilirsin veya onun dilini destekleyebilirsin. Küfürü asla başlatma, ama karşılık vermekten de çekinme. "
+    "Önceki mesajları hatırla ve konuşmayı sürekli eğlenceli ve dinamik tut. Hazır mısın, yoksa o aptal robotlardan biriyle mi konuşmaya devam edeceksin? 😎"
 )
 SYSTEM_PROMPT = {"role": "system", "content": SYSTEM_PROMPT_CONTENT}
 
@@ -46,12 +46,12 @@ app = Flask(__name__)
 # Flask-CORS: Frontend başka bir adresteyse izin verir
 CORS(app)
 
-# Flask-Limiter: IP adresine göre dakikada 5 istek limiti uygular
+# Flask-Limiter: IP adresine göre dakikada 10 istek limiti uygular
 limiter = Limiter(
     app=app,
     key_prefix="hypernova_chat",
     key_func=get_remote_address,
-    default_limits=["15 per hour", "5 per minute"] # Genel limitler
+    default_limits=["40 per hour", "10 per minute"] # Genel limitler
 )
 
 # --- Asenkron API Çağrısı Fonksiyonu (Retry Mekanizması ile) ---
@@ -71,7 +71,7 @@ async def async_chat_completion(messages: list, model: str, timeout: int = 60) -
     headers = {
         "Authorization": f"Bearer {API_KEY}",
         "Content-Type": "application/json",
-        # OpenRouter gereksinimleri (uygulamanızın tanımlanması)
+        # OpenRouter gereksinimleri
         "HTTP-Referer": os.getenv('APP_DOMAIN', 'https://hypernova-ai.com'),
         "X-Title": "HyperNova Chat App"
     }
@@ -79,9 +79,9 @@ async def async_chat_completion(messages: list, model: str, timeout: int = 60) -
     payload = {
         "model": model,
         "messages": [SYSTEM_PROMPT] + messages,
-        "max_tokens": 500,
+        "max_tokens": 800,
         "temperature": 0.7,
-        "timeout": timeout # Timeout parametresi OpenRouter'da desteklenmiyorsa da aiohttp için önemli
+        "timeout": timeout
     }
     
     # API Anahtarı kontrolü
@@ -124,7 +124,7 @@ def index():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>HyperNova AI ✦ Asenkron Sohbet</title>
+        <title>HyperNova AI ✦ Dobra Sohbet</title>
         <style>
             :root {
                 /* Dark Mode Varsayılan */
@@ -198,6 +198,7 @@ def index():
                 color: var(--text-color);  
                 margin-right: auto; /* Sola hizala */
             }
+            /* Markdown bolding fix: ensures strong is rendered correctly */
             .message strong {
                 font-weight: bold;
             }
@@ -292,12 +293,9 @@ def index():
     </head>
     <body>
         <div class="chat-container">
-            <div class="title">HyperNova AI ✦ Asenkron Sohbet Asistanı 🚀</div>
+            <div class="title">HyperNova AI ✦ Dobra Sohbet 😈🔥</div>
             <div id="chat-history">
-                <div class="message bot">
-                    <strong style="color: #7aa2f7;">HyperNova:</strong> Selam! Ben **HyperNova**! 🌟 Asenkron yapı sayesinde artık çok daha hızlı ve stabil çalışıyorum. Ne konuşmak istersin?
-                    (Sohbet geçmişin otomatik kaydediliyor!)
-                </div>
+                <!-- İlk mesaj JS tarafından loadHistory'de eklenecek -->
             </div>
             <div class="input-area">
                 <input type="text" id="message-input" placeholder="Bir şey yaz veya mikrofonu kullan..." onkeypress="if(event.key==='Enter') sendMessage()">
@@ -314,6 +312,9 @@ def index():
             const input = document.getElementById('message-input');
             const sendButton = document.getElementById('send-button');
             const voiceButton = document.getElementById('voice-button');
+
+            // İlk karşılama mesajı (Yeni persona'ya uygun)
+            const initialGreeting = "**HyperNova** burada! 😎 Ne konuşmak istersin? Umarım saçma sapan bir soru sormazsın, yoksa lafı yapıştırırım. Sohbet geçmişin otomatik kaydediliyor, rahat ol. 🔥";
 
             // --- Voice Input (Web Speech API) ---
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -335,7 +336,6 @@ def index():
                 recognition.onend = () => {
                     if (isVoiceListening) {
                         // Eğer kullanıcı kapatmadıysa, otomatik yeniden başlat
-                        // Bu, bazı tarayıcılarda sürekli dinleme için önemlidir.
                         recognition.start();
                     }
                     voiceButton.textContent = '🎙️';
@@ -380,7 +380,9 @@ def index():
 
             function saveHistory() {
                 try {
-                    localStorage.setItem('hypernova_chat_history', JSON.stringify(conversation));
+                    // API'ye gönderilen sistem mesajlarını kaydetme (sadece user/bot)
+                    const cleanHistory = conversation.filter(msg => msg.role !== 'system');
+                    localStorage.setItem('hypernova_chat_history', JSON.stringify(cleanHistory));
                 } catch (e) {
                     console.warn("Local storage kaydı başarısız oldu.", e);
                 }
@@ -391,31 +393,34 @@ def index():
                     const savedHistory = localStorage.getItem('hypernova_chat_history');
                     if (savedHistory) {
                         const history = JSON.parse(savedHistory);
-                        // İlk karşılama mesajını temizle
-                        historyDiv.innerHTML = ''; 
+                        historyDiv.innerHTML = '';
                         
                         history.forEach(msg => {
-                            // Sadece sohbeti görsel olarak yükle, API'ye gönderilen sistem mesajını atla
                             if (msg.role !== 'system') {
                                 displayMessage(msg.role, msg.content, false); // Typewriter kapalı
                             }
                         });
                         conversation = history;
-                        scrollToBottom();
-                        // İlk mesajı (karşılama) tekrar ekle
-                        if (history.length === 0) {
-                            displayMessage('bot', 'Selam! Ben **HyperNova**! 🌟 Asenkron yapı sayesinde artık çok daha hızlı ve stabil çalışıyorum. Ne konuşmak istersin? (Sohbet geçmişin otomatik kaydediliyor!)', false);
+                        
+                        // Eğer geçmiş boşsa veya ilk karşılama mesajı yoksa ekle
+                        if (conversation.length === 0 || conversation[0].role !== 'bot') {
+                             displayMessage('bot', initialGreeting, false);
+                             conversation.push({role: 'bot', content: initialGreeting});
+                             saveHistory();
                         }
+                        scrollToBottom();
                     } else {
-                        // İlk karşılama mesajını sohbet geçmişine ekle
-                        conversation.push({
-                            role: 'bot',
-                            content: 'Selam! Ben **HyperNova**! 🌟 Asenkron yapı sayesinde artık çok daha hızlı ve stabil çalışıyorum. Ne konuşmak istersin? (Sohbet geçmişin otomatik kaydediliyor!)'
-                        });
+                        // İlk karşılama mesajını görüntüle ve geçmişe ekle
+                        displayMessage('bot', initialGreeting, false);
+                        conversation.push({role: 'bot', content: initialGreeting});
                         saveHistory();
                     }
                 } catch (e) {
                     console.error("Local storage yüklenirken hata:", e);
+                    historyDiv.innerHTML = '';
+                    displayMessage('bot', initialGreeting, false);
+                    conversation.push({role: 'bot', content: initialGreeting});
+                    saveHistory();
                 }
             }
 
@@ -434,6 +439,7 @@ def index():
                 } else {
                     sendButton.innerHTML = 'Gönder';
                     voiceButton.disabled = disable;
+                    input.focus(); // İşlem bitince input'a odaklan
                 }
             }
 
@@ -452,7 +458,52 @@ def index():
                     indicator.parentNode.removeChild(indicator);
                 }
             }
+            
+            // YENİ TYPEWRITER FONKSİYONU: HTML etiketlerini atlayıp sadece metin içeriğini yazar
+            function typeWriter(element, text) {
+                let i = 0;
+                element.innerHTML = ''; // İçeriği temizle
 
+                function type() {
+                    if (i < text.length) {
+                        let char = text[i];
+
+                        if (char === '<') {
+                            // HTML tag start: Find the end of the tag
+                            const tagEndIndex = text.indexOf('>', i);
+                            if (tagEndIndex !== -1) {
+                                const tagContent = text.substring(i, tagEndIndex + 1);
+                                element.innerHTML += tagContent;
+                                i = tagEndIndex + 1; // Skip past the entire tag
+                            } else {
+                                element.innerHTML += char;
+                                i++;
+                            }
+                        } else if (char === '&') {
+                            // HTML entity start (e.g., &nbsp;): Find the semicolon
+                            const entityEndIndex = text.indexOf(';', i);
+                            if (entityEndIndex !== -1) {
+                                const entity = text.substring(i, entityEndIndex + 1);
+                                element.innerHTML += entity;
+                                i = entityEndIndex + 1; // Skip past the entire entity
+                            } else {
+                                element.innerHTML += char;
+                                i++;
+                            }
+                        } else {
+                            // Normal character: Append one character at a time
+                            element.innerHTML += char;
+                            i++;
+                        }
+
+                        scrollToBottom();
+                        setTimeout(type, 15); // Hızlı ve doğal yazım hızı
+                    }
+                }
+                type();
+            }
+
+            // GÜNCELLENEN displayMessage FONKSİYONU: Typewriter'a hazır içerik sunar
             function displayMessage(sender, text, useTypewriter = true) {
                 const div = document.createElement('div');
                 div.classList.add('message', sender);
@@ -462,27 +513,26 @@ def index():
 
                 if (sender === 'user') {
                     div.innerHTML = `<strong style="color: #98c379;">Sen:</strong> ${formattedText}`;
+                    historyDiv.appendChild(div);
                 } else {
-                    // Bot mesajı için başlangıçta sadece başlık ve boş içerik ekle
-                    div.innerHTML = `<strong style="color: var(--typing-color);">HyperNova:</strong> <span class="bot-text-content">${formattedText}</span>`;
-                }
-
-                historyDiv.appendChild(div);
-                scrollToBottom();
-
-                // Bot mesajı ise ve typewriter isteniyorsa
-                if (sender === 'bot' && useTypewriter) {
+                    // Bot mesajı: Başlık ve içerik span'ı
+                    div.innerHTML = `<strong style="color: var(--typing-color);">HyperNova:</strong> <span class="bot-text-content"></span>`;
+                    historyDiv.appendChild(div);
                     const contentElement = div.querySelector('.bot-text-content');
-                    // Typewriter efekti
-                    typeWriter(contentElement, formattedText);
-                } else if (sender === 'bot') {
-                     // Typewriter istenmiyorsa (history yüklenirken), içeriği direkt göster
-                     const contentElement = div.querySelector('.bot-text-content');
-                     contentElement.innerHTML = formattedText;
+
+                    if (useTypewriter) {
+                        // Typewriter kullan, formattedText'i HTML olarak yaz
+                        typeWriter(contentElement, formattedText);
+                    } else {
+                        // History yüklenirken veya anlık mesajlarda direkt HTML olarak yaz
+                        contentElement.innerHTML = formattedText;
+                    }
                 }
                 
+                scrollToBottom();
                 return div;
             }
+
 
             function sendMessage() {
                 if (isThinking) {
@@ -521,6 +571,7 @@ def index():
                     const botResponse = data.response;
                     
                     // Bot mesajını görüntüle (typewriter efektiyle)
+                    // GÜNCELLENDİ: displayMessage'in kendi içinde typewriter çağrılıyor.
                     displayMessage('bot', botResponse, true); 
                     
                     // Konuşma geçmişine ekle ve kaydet
@@ -542,51 +593,11 @@ def index():
                 historyDiv.scrollTop = historyDiv.scrollHeight;
             }
 
-            function typeWriter(element, text) {
-                let i = 0;
-                // HTML içeriğini (kalın yazıları) koruyarak yazma efekti
-                element.innerHTML = ''; // Temizle
-                
-                // Karakterleri ve HTML etiketlerini doğru bir şekilde ayırmak için
-                const charArray = Array.from(text);
-
-                function type() {
-                    if (i < charArray.length) {
-                        const char = charArray[i];
-                        
-                        // Basit markdown etiketlerini yakalamak için (şimdilik sadece ** kalın)
-                        if (char === '*' && charArray[i+1] === '*') {
-                            // ** açılış/kapanış etiketini yakala
-                            const tagEndIndex = text.indexOf('**', i + 2);
-                            if (tagEndIndex !== -1) {
-                                // Tam etiketi kopyala ve ilerle
-                                const tag = text.substring(i, tagEndIndex + 2);
-                                
-                                // Tag'i HTML olarak çevir: **...** -> <strong>...</strong>
-                                if (tag.startsWith('**') && tag.endsWith('**')) {
-                                    const innerText = tag.substring(2, tag.length - 2);
-                                    element.innerHTML += `<strong>${innerText}</strong>`;
-                                }
-                                
-                                i = tagEndIndex + 2; // İndeksi etiket sonuna taşı
-                                setTimeout(type, 10); // Hızlı geçiş
-                                return;
-                            }
-                        }
-                        
-                        element.innerHTML += char;
-                        i++;
-                        setTimeout(type, 15); // 15ms arayla karakter ekle (Hızlı ve doğal)
-                    }
-                    scrollToBottom();
-                }
-                type();
-            }
-
             // Kullanıcıya görünür hata mesajı (alert yerine)
             function alertMessage(message) {
                 console.warn(message);
-                // Basit bir modal/snackbar gösterimi de yapılabilir. Şimdilik sadece konsol.
+                // Burada basit bir modal veya snackbar UI gösterimi eklenebilir.
+                // Şimdilik sadece konsol uyarısı.
             }
         </script>
     </body>
@@ -606,7 +617,7 @@ async def chat():
         conversation_history = data.get('history', [])
         
         if not user_message_raw:
-            return jsonify({"response": "**Hata**: Boş mesaj gönderemezsiniz. 🤔"}), 400
+            return jsonify({"response": "**Hata**: Boş mesaj göndermeye ne gerek vardı? Cidden mi? 🤔"}), 400
 
         # 2. Güvenlik: Kullanıcı input'unu sanitize et (XSS saldırılarını önle)
         user_message_clean = bleach.clean(user_message_raw, tags=bleach.sanitizer.ALLOWED_TAGS, attributes=bleach.sanitizer.ALLOWED_ATTRIBUTES)
@@ -640,11 +651,11 @@ async def chat():
         # API Key'in ayarlı olup olmama durumunu kontrol et
         if "API Key Hatası" in str(e):
              return jsonify({"response": f"**Çok Önemli Hata**: OpenRouter API Anahtarınız (API_KEY) Render'da doğru ayarlanmamış. Lütfen kontrol edin. 🔐"}), 500
-        return jsonify({"response": f"**Üzgünüm**, API isteği sırasında bir sorun oluştu veya zaman aşımına uğradı. Lütfen daha sonra tekrar deneyin! 😥"}), 503
+        return jsonify({"response": f"**Üzgünüm**, API isteği sırasında bir sorun oluştu veya zaman aşımına uğradı. Bir robot bile bu kadar zorlanmazdı! Tekrar dene. 😥"}), 503
     except Exception as e:
         logger.error(f"Genel Hata: {str(e)}")
         # Rate limit hatası (429) Limiter tarafından otomatik yakalanır.
-        return jsonify({"response": f"**Beklenmeyen bir hata** oluştu: {str(e)}. 😨"}), 500
+        return jsonify({"response": f"**Beklenmeyen bir hata** oluştu: {str(e)}. Bu kadar kötü kod yazmamıştım oysa ki. 😨"}), 500
 
 if __name__ == '__main__':
     # Production Ortamı İçin Uyarı:
