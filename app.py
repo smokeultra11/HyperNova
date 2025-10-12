@@ -626,7 +626,30 @@ def index():
                 font-weight: 600;
                 border-bottom: 1px solid var(--border-color);
             }
+            .sidebar-top-buttons {
+                padding: 0 20px 10px;
+                display: flex;
+                gap: 5px;
+                border-bottom: 1px solid var(--border-color);
+            }
+            .new-chat-button {
+                flex: 1;
+                padding: 8px;
+                background-color: var(--primary-color);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 12px;
+                font-weight: 600;
+            }
+            .new-chat-button:hover {
+                background-color: #a78bfa;
+            }
             .saved-chat {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
                 padding: 12px 20px;
                 cursor: pointer;
                 border-bottom: 1px solid var(--border-color);
@@ -642,6 +665,24 @@ def index():
             .saved-chat.active {
                 background-color: var(--primary-color);
                 color: white;
+            }
+            .saved-chat-name {
+                flex: 1;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .delete-chat-button {
+                background: none;
+                border: none;
+                color: #ef4444;
+                cursor: pointer;
+                font-size: 16px;
+                padding: 0 5px;
+                border-radius: 4px;
+                transition: background-color 0.2s;
+            }
+            .delete-chat-button:hover {
+                background-color: rgba(239, 68, 68, 0.2);
             }
             .save-limit {
                 padding: 10px 20px;
@@ -1063,6 +1104,9 @@ def index():
         <div class="main-container">
             <!-- YENİ: Sidebar -->
             <div class="sidebar" id="sidebar">
+                <div class="sidebar-top-buttons">
+                    <button class="new-chat-button" onclick="newConversation()">Yeni Sohbet</button>
+                </div>
                 <h3>Kaydedilen Sohbetler</h3>
                 <div id="saved-chats-list"></div>
                 <div class="save-limit">Maksimum 5 sohbet</div>
@@ -1098,8 +1142,8 @@ def index():
                     
                     <div class="input-area">
                         <input type="text" id="message-input" placeholder="Kozmik bir soru sor..." onkeypress="if(event.key==='Enter') sendMessage()">
-                        <button id="voice-button" class="action-button" onclick="toggleVoiceInput()" title="Sesli Giriş">🎙️</button>
                         <button id="save-chat-button" class="action-button" onclick="saveCurrentConversation()">💾 Sohbeti Kaydet</button>
+                        <button id="voice-button" class="action-button" onclick="toggleVoiceInput()" title="Sesli Giriş">🎙️</button>
                         <button id="send-button" class="action-button" onclick="sendMessage()">Gönder</button>
                     </div>
                 </div>
@@ -1111,6 +1155,7 @@ def index():
             let isThinking = false;
             let isVoiceListening = false;
             let savedConversations = []; // Kaydedilen sohbetler dizisi
+            let currentLoadedChatId = null; // Aktif yüklenen sohbet ID'si
             
             const historyDiv = document.getElementById('chat-history');
             const input = document.getElementById('message-input');
@@ -1162,6 +1207,21 @@ def index():
                 return text;
             }
 
+            // --- YENİ: Yeni Sohbet Butonu ---
+            function newConversation() {
+                if (isThinking) {
+                    alertMessage('Yeni sohbet için bekle, sistem meşgul. ⏳');
+                    return;
+                }
+                if (confirm('Yeni sohbet başlatılacak. Mevcut sohbet kaydedilsin mi? (Vazgeçersen mevcut kalır)')) {
+                    saveCurrentConversation(); // Opsiyonel kaydet
+                }
+                clearConversation(true); // Sessiz temizle
+                currentLoadedChatId = null; // Aktif sohbeti sıfırla
+                updateSavedChatsList(); // Aktif vurguyu kaldır
+                alertMessage('Yeni sohbet başlatıldı! ✨');
+            }
+
             // --- YENİ: Sohbet Kaydetme Fonksiyonları ---
             function saveCurrentConversation() {
                 if (conversation.length < 2) { // En az bir mesaj çifti olmalı
@@ -1197,11 +1257,16 @@ def index():
 
             function updateSavedChatsList() {
                 savedChatsList.innerHTML = '';
-                savedConversations.forEach((chat, index) => {
+                savedConversations.forEach((chat) => {
                     const chatElement = document.createElement('div');
                     chatElement.className = 'saved-chat';
-                    chatElement.textContent = chat.name;
-                    chatElement.onclick = () => loadSavedConversation(chat.id);
+                    if (currentLoadedChatId === chat.id) {
+                        chatElement.classList.add('active');
+                    }
+                    chatElement.innerHTML = `
+                        <span class="saved-chat-name" onclick="loadSavedConversation('${chat.id}')">${chat.name}</span>
+                        <button class="delete-chat-button" onclick="deleteSavedConversation('${chat.id}', event)" title="Sohbeti Sil">🗑️</button>
+                    `;
                     savedChatsList.appendChild(chatElement);
                 });
             }
@@ -1229,17 +1294,24 @@ def index():
                 scrollToBottom();
 
                 // Aktif sohbeti vurgula
-                document.querySelectorAll('.saved-chat').forEach(el => el.classList.remove('active'));
-                const activeEl = Array.from(savedChatsList.children).find(el => el.textContent === chat.name);
-                if (activeEl) activeEl.classList.add('active');
+                currentLoadedChatId = chatId;
+                updateSavedChatsList();
 
                 alertMessage(`"${chat.name}" sohbeti yüklendi.`);
             }
 
-            function deleteSavedConversation(chatId) {
-                savedConversations = savedConversations.filter(c => c.id !== chatId);
-                localStorage.setItem('hypernova_saved_conversations', JSON.stringify(savedConversations));
-                updateSavedChatsList();
+            function deleteSavedConversation(chatId, event) {
+                event.stopPropagation(); // Tıklama yayılmasını engelle
+                if (confirm('Bu sohbet silinecek. Emin misin?')) {
+                    savedConversations = savedConversations.filter(c => c.id !== chatId);
+                    localStorage.setItem('hypernova_saved_conversations', JSON.stringify(savedConversations));
+                    if (currentLoadedChatId === chatId) {
+                        currentLoadedChatId = null;
+                        newConversation(); // Aktifse yeni sohbet başlat
+                    }
+                    updateSavedChatsList();
+                    alertMessage('Sohbet silindi. 🗑️');
+                }
             }
 
             // --- AUTH FONKSİYONLARI (YENİ) ---
@@ -1362,7 +1434,7 @@ def index():
                             kaiaOption.textContent = 'Kaia (Anime) 🌠';
                         } else {
                             kaiaOption.setAttribute('disabled', 'disabled');
-                            kaiaOption.textContent = 'Kaia (Anime) 🌠 (Premium)';
+                            kaiaOption.textContent = 'Kaia (Anime) (Premium) 🌠';
                         }
                         
                         userInfoSpan.innerHTML = `Hoş geldin, <strong>${currentUsername}</strong>${premiumInfo}`;
@@ -1466,6 +1538,8 @@ def index():
                     conversation = [];
                     historyDiv.innerHTML = '';
                     displayInitialGreeting();
+                    currentLoadedChatId = null;
+                    updateSavedChatsList();
                     if (!isSilent) alertMessage('Sohbet geçmişi silindi. Sıfırdan başlıyoruz. ✅');
                 }
             }
