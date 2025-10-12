@@ -5,9 +5,9 @@ import asyncio
 import aiohttp
 import bleach
 import uuid
-from datetime import datetime, timedelta # Tarih ve zaman işlemleri için önemli
+from datetime import datetime, timedelta
 from typing import Optional, Dict
-
+import sqlite3
 from flask import Flask, request, jsonify, render_template_string, make_response, redirect, url_for
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -23,22 +23,51 @@ API_KEY = os.getenv('API_KEY', 'YOUR_API_KEY_HERE')
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Modeller
-MODEL_DEFAULT = "google/gemini-2.5-flash" # Varsayılan: Hızlı model
+MODEL_DEFAULT = "google/gemini-2.5-flash"  # Varsayılan: Hızlı model
 
-# --- KULLANICI & PREMIUM YÖNETİMİ (IN-MEMORY DEMO) ---
-# Gerçek uygulamada burası kalıcı bir veritabanı (SQLAlchemy, vb.) olur.
-# User: {
-#   'username': str, 
-#   'password': str (demo için düz metin), 
-#   'premium_until': datetime,
-#   'session_id': str (varsa)
-# }
-USER_DB: Dict[str, Dict] = {} 
-SESSION_MAP: Dict[str, str] = {} # session_id: username
+# --- VERİTABANI BAĞLANTISI (SQLite - Kalıcı Depolama) ---
+DB_PATH = 'hypernova.db'
+
+def init_db():
+    """Veritabanını başlatır ve tabloları oluşturur."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Kullanıcılar tablosu
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            premium_until TIMESTAMP NOT NULL
+        )
+    ''')
+    
+    # Sohbetler tablosu (Kullanıcıya bağlı)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chats (
+            id TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            messages TEXT NOT NULL,  -- JSON string
+            last_updated TIMESTAMP NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+    logger.info("Veritabanı başlatıldı.")
+
+# Başlangıçta DB'yi başlat
+init_db()
+
+# --- SESSION MAP (In-Memory - Kısa Süreli) ---
+SESSION_MAP: Dict[str, str] = {}  # session_id: username
 
 # Geliştirici kullanıcı adı (Admin paneline erişim için)
 DEVELOPER_USERNAME = "yuiouo"
-DEVELOPER_PASSWORD = "TheLastGalaxy*" # Gerçekte hashlenmeli!
+DEVELOPER_PASSWORD = "TheLastGalaxy*"  # Gerçekte hashlenmeli!
 
 # --- KARAKTER PROMPTLARI (Aynı Kaldı) ---
 
@@ -85,7 +114,6 @@ SYSTEM_PROMPTS = {
 }
 DEFAULT_PERSONA = "hypernova"
 
-
 # API Hata Türleri (tenacity için)
 class APIRequestError(Exception):
     """API isteği sırasında yaşanan hatalar için özel istisna."""
@@ -103,7 +131,22 @@ limiter = Limiter(
     default_limits=["60 per hour", "15 per minute"]
 )
 
-# --- Yardımcı Fonksiyonlar (Authentication/Authorization) ---
+# --- YARDIMCI FONKSİYONLAR (DB İşlemleri) ---
+
+def get_db_connection():
+    """DB bağlantısı döndürür."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row  # Dict-like rows için
+    return conn
+
+def get_user_id(username: str) -> Optional[int]:
+    """Kullanıcı ID'sini döndürür."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
+    row = cursor.fetchone()
+    conn.close()
+    return row['id'] if row else None
 
 def get_current_user() -> Optional[str]:
     """Cookie'den session_id'yi alır ve kullanıcı adını döndürür."""
@@ -112,15 +155,151 @@ def get_current_user() -> Optional[str]:
 
 def is_user_premium(username: str) -> bool:
     """Kullanıcının premium üyeliğinin aktif olup olmadığını kontrol eder."""
-    user_data = USER_DB.get(username)
-    if not user_data:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT premium_until FROM users 
+        WHERE username = ? AND premium_until > datetime('now')
+    """, (username,))
+    row = cursor.fetchone()
+    conn.close()
+    return bool(row)
+
+def get_premium_until(username: str) -> Optional[datetime]:
+    """Premium bitiş tarihini döndürür."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT premium_until FROM users WHERE username = ?", (username,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return datetime.fromisoformat(row['premium_until'])
+    return None
+
+def create_user(username: str, password: str):
+    """Yeni kullanıcı oluşturur."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO users (username, password, premium_until) 
+            VALUES (?, ?, datetime('now'))
+        """, (username, password))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
         return False
-    # Premium bitiş tarihi şimdiki zamandan büyükse True döndür
-    return user_data['premium_until'] > datetime.now()
+    finally:
+        conn.close()
+
+def authenticate_user(username: str, password: str) -> bool:
+    """Kullanıcıyı doğrular."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
+    row = cursor.fetchone()
+    conn.close()
+    return row and row['password'] == password
 
 def check_admin_auth(username: str, password: str) -> bool:
     """Geliştirici (Admin) girişi için kontrol."""
     return username == DEVELOPER_USERNAME and password == DEVELOPER_PASSWORD
+
+def grant_premium(username: str, days: int = 30):
+    """Kullanıcıya premium verir."""
+    new_expiry = datetime.now() + timedelta(days=days)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE users SET premium_until = ? WHERE username = ?
+    """, (new_expiry.isoformat(), username))
+    conn.commit()
+    conn.close()
+    return cursor.rowcount > 0
+
+def save_chat(username: str, chat_name: str, messages: list) -> str:
+    """Sohbeti kaydeder ve ID döndürür."""
+    user_id = get_user_id(username)
+    if not user_id:
+        return None
+    
+    chat_id = str(uuid.uuid4())
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO chats (id, user_id, name, messages, last_updated)
+        VALUES (?, ?, ?, ?, datetime('now'))
+    """, (chat_id, user_id, chat_name, json.dumps(messages)))
+    conn.commit()
+    conn.close()
+    return chat_id
+
+def get_user_chats(username: str) -> list:
+    """Kullanıcının sohbetlerini döndürür (20 gün kuralı ile)."""
+    user_id = get_user_id(username)
+    if not user_id:
+        return []
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, name, messages, last_updated 
+        FROM chats 
+        WHERE user_id = ? AND last_updated > datetime('now', '-20 days')
+        ORDER BY last_updated DESC
+    """, (user_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    chats = []
+    for row in rows:
+        chats.append({
+            'id': row['id'],
+            'name': row['name'],
+            'messages': json.loads(row['messages']),
+            'last_updated': row['last_updated']
+        })
+    return chats
+
+def load_chat(username: str, chat_id: str) -> Optional[Dict]:
+    """Sohbeti yükler."""
+    user_id = get_user_id(username)
+    if not user_id:
+        return None
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT name, messages, last_updated 
+        FROM chats 
+        WHERE id = ? AND user_id = ?
+    """, (chat_id, user_id))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row:
+        return {
+            'id': chat_id,
+            'name': row['name'],
+            'messages': json.loads(row['messages']),
+            'last_updated': row['last_updated']
+        }
+    return None
+
+def delete_chat(username: str, chat_id: str) -> bool:
+    """Sohbeti siler."""
+    user_id = get_user_id(username)
+    if not user_id:
+        return False
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        DELETE FROM chats WHERE id = ? AND user_id = ?
+    """, (chat_id, user_id))
+    conn.commit()
+    conn.close()
+    return cursor.rowcount > 0
 
 # --- Asenkron API Çağrısı Fonksiyonu (Retry Mekanizması ile) ---
 
@@ -184,7 +363,6 @@ async def async_chat_completion(messages: list, model: str, persona: str, timeou
             logger.error(f"Beklenmeyen bir hata oluştu: {e}")
             raise APIRequestError(f"Beklenmeyen Hata: {e}")
 
-
 # --- Flask Rotaları (Authentication/Chat/Admin) ---
 
 @app.route('/is_premium', methods=['GET'])
@@ -196,9 +374,9 @@ def is_premium_endpoint():
 
     if username:
         is_premium = is_user_premium(username)
-        user_data = USER_DB.get(username)
-        if is_premium:
-             premium_until_str = user_data['premium_until'].strftime('%Y-%m-%d %H:%M:%S')
+        premium_until = get_premium_until(username)
+        if is_premium and premium_until:
+             premium_until_str = premium_until.strftime('%Y-%m-%d %H:%M:%S')
 
     return jsonify({
         "logged_in": bool(username),
@@ -207,7 +385,6 @@ def is_premium_endpoint():
         "premium_until": premium_until_str
     })
 
-
 @app.route('/chat', methods=['POST'])
 @limiter.limit("15 per minute")
 async def chat_endpoint():
@@ -215,7 +392,6 @@ async def chat_endpoint():
     if not username:
         # Premium olmayan kullanıcılar için bile chate izin verelim, 
         # sadece Kaia modunu kısıtlayalım (HyperNova ücretsiz kalsın)
-        # return jsonify({"error": "Giriş yapmalısınız."}), 401 
         pass 
 
     try:
@@ -246,6 +422,60 @@ async def chat_endpoint():
         logger.error(f"Sunucu Hatası: {e}")
         return jsonify({"error": "Dahili Sunucu Hatası: " + str(e)}), 500
 
+# --- SOHBET YÖNETİM API'LERİ (YENİ) ---
+
+@app.route('/save_chat', methods=['POST'])
+def save_chat_endpoint():
+    username = get_current_user()
+    if not username:
+        return jsonify({"error": "Giriş yapmalısınız."}), 401
+    
+    data = request.get_json()
+    chat_name = data.get('name')
+    messages = data.get('messages', [])
+    
+    if not chat_name or not messages:
+        return jsonify({"error": "Sohbet adı ve mesajlar zorunlu."}), 400
+    
+    # Maksimum 5 sohbet kontrolü
+    user_chats = get_user_chats(username)
+    if len(user_chats) >= 5:
+        return jsonify({"error": "Maksimum 5 sohbet kaydedilebilir."}), 400
+    
+    chat_id = save_chat(username, chat_name, messages)
+    if chat_id:
+        return jsonify({"message": "Sohbet kaydedildi.", "chat_id": chat_id}), 201
+    return jsonify({"error": "Kaydetme başarısız."}), 500
+
+@app.route('/load_chats', methods=['GET'])
+def load_chats_endpoint():
+    username = get_current_user()
+    if not username:
+        return jsonify({"error": "Giriş yapmalısınız."}), 401
+    
+    chats = get_user_chats(username)
+    return jsonify({"chats": chats})
+
+@app.route('/load_chat/<chat_id>', methods=['GET'])
+def load_chat_endpoint(chat_id):
+    username = get_current_user()
+    if not username:
+        return jsonify({"error": "Giriş yapmalısınız."}), 401
+    
+    chat = load_chat(username, chat_id)
+    if chat:
+        return jsonify({"chat": chat})
+    return jsonify({"error": "Sohbet bulunamadı."}), 404
+
+@app.route('/delete_chat/<chat_id>', methods=['DELETE'])
+def delete_chat_endpoint(chat_id):
+    username = get_current_user()
+    if not username:
+        return jsonify({"error": "Giriş yapmalısınız."}), 401
+    
+    if delete_chat(username, chat_id):
+        return jsonify({"message": "Sohbet silindi."})
+    return jsonify({"error": "Sohbet silinemedi."}), 404
 
 # --- Kullanıcı Yönetim Rotaları ---
 
@@ -258,18 +488,10 @@ def register():
     if not username or not password:
         return jsonify({"error": "Kullanıcı adı ve şifre zorunludur."}), 400
 
-    if username in USER_DB:
-        return jsonify({"error": "Bu kullanıcı adı zaten alınmış."}), 409
-
-    # Başlangıçta premium değil (Premium_until: şimdi)
-    USER_DB[username] = {
-        'username': username,
-        'password': password, # Gerçekte: hashlenmiş şifre
-        'premium_until': datetime.now() 
-    }
-    logger.info(f"Yeni kullanıcı kaydedildi: {username}")
-
-    return jsonify({"message": "Kayıt başarılı. Şimdi giriş yapabilirsiniz."}), 201
+    if create_user(username, password):
+        logger.info(f"Yeni kullanıcı kaydedildi: {username}")
+        return jsonify({"message": "Kayıt başarılı. Şimdi giriş yapabilirsiniz."}), 201
+    return jsonify({"error": "Bu kullanıcı adı zaten alınmış."}), 409
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -277,29 +499,26 @@ def login():
     username = data.get('username')
     password = data.get('password')
 
-    user_data = USER_DB.get(username)
+    if authenticate_user(username, password):
+        # Başarılı giriş: Yeni session ID oluştur
+        session_id = str(uuid.uuid4())
+        SESSION_MAP[session_id] = username
 
-    if not user_data or user_data['password'] != password:
-        return jsonify({"error": "Geçersiz kullanıcı adı veya şifre."}), 401
+        # Premium durumunu kontrol et
+        is_premium = is_user_premium(username)
 
-    # Başarılı giriş: Yeni session ID oluştur
-    session_id = str(uuid.uuid4())
-    SESSION_MAP[session_id] = username
+        logger.info(f"Kullanıcı giriş yaptı: {username} (Premium: {is_premium})")
 
-    # Premium durumunu kontrol et
-    is_premium = is_user_premium(username)
-
-    logger.info(f"Kullanıcı giriş yaptı: {username} (Premium: {is_premium})")
-
-    # Cookie ile session ID'yi ayarla
-    response = make_response(jsonify({
-        "message": "Giriş başarılı.", 
-        "username": username,
-        "is_premium": is_premium
-    }))
-    # Secure, HttpOnly ve SameSite=Lax (ya da Strict) gerçek bir uygulamada ayarlanmalı
-    response.set_cookie('session_id', session_id, httponly=True, max_age=timedelta(days=7)) 
-    return response
+        # Cookie ile session ID'yi ayarla
+        response = make_response(jsonify({
+            "message": "Giriş başarılı.", 
+            "username": username,
+            "is_premium": is_premium
+        }))
+        # Secure, HttpOnly ve SameSite=Lax (ya da Strict) gerçek bir uygulamada ayarlanmalı
+        response.set_cookie('session_id', session_id, httponly=True, max_age=timedelta(days=7)) 
+        return response
+    return jsonify({"error": "Geçersiz kullanıcı adı veya şifre."}), 401
 
 @app.route('/logout', methods=['POST'])
 def logout():
@@ -313,7 +532,7 @@ def logout():
     response.set_cookie('session_id', '', expires=0) # Cookie'yi sil
     return response
 
-# --- GELİŞTİRİCİ / ADMIN PANEL ROTASI (YENİ) ---
+# --- GELİŞTİRİCİ / ADMIN PANEL ROTASI (GÜNCELLENDİ: DB Kullanımı) ---
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_panel():
@@ -350,18 +569,18 @@ def admin_panel():
 
             target_username = request.form.get('target_username')
 
-            if target_username not in USER_DB:
+            if get_user_id(target_username) is None:
                 return admin_panel_template(f"Hata: Kullanıcı **{target_username}** bulunamadı."), 404
 
             # Premium Süresini Ayarla (Şimdiden 30 gün sonrası)
-            new_expiry_date = datetime.now() + timedelta(days=30)
-            USER_DB[target_username]['premium_until'] = new_expiry_date
+            if grant_premium(target_username):
+                logger.info(f"Admin: {target_username} kullanıcısının premiumluğu uzatıldı.")
 
-            logger.info(f"Admin: {target_username} kullanıcısının premiumluğu {new_expiry_date.strftime('%Y-%m-%d')} tarihine kadar uzatıldı.")
-
-            # Başarı mesajı ile admin panelini yeniden yükle
-            message = f"Başarılı! **{target_username}** kullanıcısının premium üyeliği **{new_expiry_date.strftime('%Y-%m-%d %H:%M:%S')}** tarihine kadar aktifleştirildi (30 gün)."
-            return admin_panel_template(message, is_authenticated)
+                # Başarı mesajı ile admin panelini yeniden yükle
+                message = f"Başarılı! **{target_username}** kullanıcısının premium üyeliği **{ (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')}** tarihine kadar aktifleştirildi (30 gün)."
+                return admin_panel_template(message, is_authenticated)
+            else:
+                return admin_panel_template(f"Hata: Kullanıcı **{target_username}** premium verilemedi."), 500
 
 
     # GET isteği veya ilk yükleme
@@ -372,7 +591,6 @@ def admin_panel():
         return admin_panel_template("", is_authenticated)
     else:
         return admin_login_template()
-
 
 def admin_login_template(error_message: str = ""):
     """Admin Giriş Formu HTML'i."""
@@ -413,15 +631,22 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
     if not is_authenticated:
         return redirect(url_for('admin_panel'))
 
-    user_list_html = ""
     # Kullanıcı verilerini premium durumuna göre hazırla
-    sorted_users = sorted(USER_DB.items(), key=lambda item: item[1]['premium_until'], reverse=True)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT username, premium_until FROM users ORDER BY premium_until DESC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
 
-    for username, data in sorted_users:
+    user_list_html = ""
+    for row in rows:
+        username = row['username']
         is_premium_active = is_user_premium(username)
         status_text = "AKTİF" if is_premium_active else "PASİF"
         status_color = "color: green;" if is_premium_active else "color: red;"
-        expiry_date = data['premium_until'].strftime('%Y-%m-%d %H:%M:%S')
+        expiry_date = row['premium_until']
 
         user_list_html += f"""
         <tr>
@@ -482,7 +707,7 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
                 <button type="submit">Premium Aktifleştir (30 Gün)</button>
             </form>
             
-            <h2>Sistemdeki Tüm Kullanıcılar ({len(USER_DB)})</h2>
+            <h2>Sistemdeki Tüm Kullanıcılar ({len(rows) if 'rows' in locals() else 0})</h2>
             <table>
                 <thead>
                     <tr>
@@ -492,7 +717,7 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
                     </tr>
                 </thead>
                 <tbody>
-                    {user_list_html if USER_DB else '<tr><td colspan="3">Sistemde kayıtlı kullanıcı yok.</td></tr>'}
+                    {user_list_html if rows else '<tr><td colspan="3">Sistemde kayıtlı kullanıcı yok.</td></tr>'}
                 </tbody>
             </table>
         </div>
@@ -500,11 +725,10 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
     </html>
     """)
 
-
 @app.route('/', methods=['GET'])
 def index():
     """Ana sayfa: Frontend arayüzünü döndürür."""
-    # HTML, CSS ve JS kodları aşağıdadır...
+    # HTML, CSS ve JS kodları aşağıdadır... (Frontend güncellendi: API çağrıları ile sohbet yönetimi)
     html_template = """
     <!DOCTYPE html>
     <html lang="tr">
@@ -1203,7 +1427,7 @@ def index():
             let conversation = [];
             let isThinking = false;
             let isVoiceListening = false;
-            let savedConversations = []; // Kaydedilen sohbetler dizisi
+            let savedConversations = []; // Kaydedilen sohbetler dizisi (API'den yüklenir)
             let currentLoadedChatId = null; // Aktif yüklenen sohbet ID'si
             let isCurrentSaved = false; // Mevcut sohbet kaydedildi mi?
             
@@ -1257,27 +1481,12 @@ def index():
                 return text;
             }
 
-            // --- YENİ: Yeni Sohbet Butonu (Kaydedilmişse Sorma) ---
-            function newConversation() {
-                if (isThinking) {
-                    alertMessage('Yeni sohbet için bekle, sistem meşgul. ⏳');
+            // --- API İLE SOHBET FONKSİYONLARI (YENİ) ---
+            async function saveCurrentConversation() {
+                if (!isLoggedIn) {
+                    alertMessage('Sohbet kaydetmek için giriş yapmalısınız.');
                     return;
                 }
-                let needsSave = !isCurrentSaved && conversation.length >= 2;
-                if (needsSave && confirm('Yeni sohbet başlatılacak. Mevcut sohbet kaydedilsin mi? (Vazgeçersen mevcut kalır)')) {
-                    saveCurrentConversation();
-                } else if (needsSave && !confirm('Kaydetmeden devam etmek istediğinize emin misiniz?')) {
-                    return; // Vazgeç
-                }
-                clearConversation(true); // Sessiz temizle
-                currentLoadedChatId = null; // Aktif sohbeti sıfırla
-                isCurrentSaved = false;
-                updateSavedChatsList(); // Aktif vurguyu kaldır
-                alertMessage('Yeni sohbet başlatıldı! ✨');
-            }
-
-            // --- YENİ: Sohbet Kaydetme Fonksiyonları ---
-            function saveCurrentConversation() {
                 if (conversation.length < 2) { // En az bir mesaj çifti olmalı
                     alertMessage('Kaydedilecek sohbet yok. En az bir mesaj gönderin.');
                     return;
@@ -1289,26 +1498,115 @@ def index():
                     return;
                 }
 
-                // Maksimum 5 sohbet kontrolü
-                if (savedConversations.length >= 5) {
+                // Maksimum 5 sohbet kontrolü (API'den)
+                const userChats = await loadUserChats();
+                if (userChats.chats.length >= 5) {
                     alertMessage('Maksimum 5 sohbet kaydedilebilir. Eski bir sohbeti silin.');
                     return;
                 }
 
-                const chatId = Date.now().toString();
-                const chatData = {
-                    id: chatId,
-                    name: chatName.trim(),
-                    messages: [...conversation],
-                    last_updated: Date.now()
-                };
+                try {
+                    const response = await fetch('/save_chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: chatName.trim(), messages: conversation })
+                    });
 
-                savedConversations.push(chatData);
-                localStorage.setItem('hypernova_saved_conversations', JSON.stringify(savedConversations));
+                    const data = await response.json();
+                    if (response.ok) {
+                        isCurrentSaved = true;
+                        currentLoadedChatId = data.chat_id;
+                        await loadUserChats(); // Listeyi güncelle
+                        alertMessage(`Sohbet "${chatName}" kaydedildi. 💾`);
+                    } else {
+                        alertMessage(`Kaydetme hatası: ${data.error}`);
+                    }
+                } catch (error) {
+                    alertMessage('Kaydetme sırasında hata oluştu.');
+                }
+            }
+
+            async function loadUserChats() {
+                try {
+                    const response = await fetch('/load_chats');
+                    const data = await response.json();
+                    if (response.ok) {
+                        savedConversations = data.chats;
+                        updateSavedChatsList();
+                        return data;
+                    } else {
+                        alertMessage(`Sohbetler yüklenemedi: ${data.error}`);
+                    }
+                } catch (error) {
+                    console.error('Sohbet yükleme hatası:', error);
+                }
+                savedConversations = [];
                 updateSavedChatsList();
-                isCurrentSaved = true;
-                currentLoadedChatId = chatId;
-                alertMessage(`Sohbet "${chatName}" kaydedildi. 💾`);
+                return { chats: [] };
+            }
+
+            async function loadSavedConversation(chatId) {
+                if (!isLoggedIn) {
+                    alertMessage('Sohbet yüklemek için giriş yapmalısınız.');
+                    return;
+                }
+                try {
+                    const response = await fetch(`/load_chat/${chatId}`);
+                    const data = await response.json();
+                    if (response.ok) {
+                        const chat = data.chat;
+                        conversation = chat.messages;
+                        historyDiv.innerHTML = '';
+                        conversation.forEach(msg => {
+                            if (msg.role !== 'system') {
+                                displayMessage(msg.role, msg.content, false);
+                            }
+                        });
+                        scrollToBottom();
+
+                        // Aktif sohbeti vurgula
+                        currentLoadedChatId = chatId;
+                        isCurrentSaved = true;
+                        updateSavedChatsList();
+
+                        alertMessage(`"${chat.name}" sohbeti yüklendi.`);
+                    } else {
+                        alertMessage(`Yükleme hatası: ${data.error}`);
+                        if (data.error.includes('bulunamadı')) {
+                            // Silinmişse listeden kaldır
+                            await deleteSavedConversation(chatId);
+                        }
+                    }
+                } catch (error) {
+                    alertMessage('Sohbet yüklenemedi.');
+                }
+            }
+
+            async function deleteSavedConversation(chatId, event) {
+                if (!isLoggedIn) {
+                    alertMessage('Sohbet silmek için giriş yapmalısınız.');
+                    return;
+                }
+                event.stopPropagation(); // Tıklama yayılmasını engelle
+                if (confirm('Bu sohbet silinecek. Emin misin?')) {
+                    try {
+                        const response = await fetch(`/delete_chat/${chatId}`, { method: 'DELETE' });
+                        const data = await response.json();
+                        if (response.ok) {
+                            if (currentLoadedChatId === chatId) {
+                                currentLoadedChatId = null;
+                                isCurrentSaved = false;
+                                newConversation(); // Aktifse yeni sohbet başlat
+                            }
+                            await loadUserChats(); // Listeyi güncelle
+                            alertMessage('Sohbet silindi. 🗑️');
+                        } else {
+                            alertMessage(`Silme hatası: ${data.error}`);
+                        }
+                    } catch (error) {
+                        alertMessage('Silme sırasında hata oluştu.');
+                    }
+                }
             }
 
             function updateSavedChatsList() {
@@ -1328,49 +1626,23 @@ def index():
                 });
             }
 
-            function loadSavedConversation(chatId) {
-                const chat = savedConversations.find(c => c.id === chatId);
-                if (!chat) return;
-
-                // 20 gün kuralı kontrolü
-                const now = Date.now();
-                const TWENTY_DAYS_MS = 20 * 24 * 60 * 60 * 1000;
-                if (now - chat.last_updated > TWENTY_DAYS_MS) {
-                    alertMessage('Bu sohbet 20 gün önce kaydedilmiş, otomatik siliniyor.');
-                    deleteSavedConversation(chatId);
+            // --- YENİ: Yeni Sohbet Butonu (Kaydedilmişse Sorma) ---
+            function newConversation() {
+                if (isThinking) {
+                    alertMessage('Yeni sohbet için bekle, sistem meşgul. ⏳');
                     return;
                 }
-
-                conversation = chat.messages;
-                historyDiv.innerHTML = '';
-                conversation.forEach(msg => {
-                    if (msg.role !== 'system') {
-                        displayMessage(msg.role, msg.content, false);
-                    }
-                });
-                scrollToBottom();
-
-                // Aktif sohbeti vurgula
-                currentLoadedChatId = chatId;
-                isCurrentSaved = true;
-                updateSavedChatsList();
-
-                alertMessage(`"${chat.name}" sohbeti yüklendi.`);
-            }
-
-            function deleteSavedConversation(chatId, event) {
-                event.stopPropagation(); // Tıklama yayılmasını engelle
-                if (confirm('Bu sohbet silinecek. Emin misin?')) {
-                    savedConversations = savedConversations.filter(c => c.id !== chatId);
-                    localStorage.setItem('hypernova_saved_conversations', JSON.stringify(savedConversations));
-                    if (currentLoadedChatId === chatId) {
-                        currentLoadedChatId = null;
-                        isCurrentSaved = false;
-                        newConversation(); // Aktifse yeni sohbet başlat
-                    }
-                    updateSavedChatsList();
-                    alertMessage('Sohbet silindi. 🗑️');
+                let needsSave = !isCurrentSaved && conversation.length >= 2;
+                if (needsSave && confirm('Yeni sohbet başlatılacak. Mevcut sohbet kaydedilsin mi? (Vazgeçersen mevcut kalır)')) {
+                    saveCurrentConversation();
+                } else if (needsSave && !confirm('Kaydetmeden devam etmek istediğinize emin misiniz?')) {
+                    return; // Vazgeç
                 }
+                clearConversation(true); // Sessiz temizle
+                currentLoadedChatId = null; // Aktif sohbeti sıfırla
+                isCurrentSaved = false;
+                updateSavedChatsList(); // Aktif vurguyu kaldır
+                alertMessage('Yeni sohbet başlatıldı! ✨');
             }
 
             // --- AUTH FONKSİYONLARI (YENİ) ---
@@ -1432,6 +1704,7 @@ def index():
                             // Cookie otomatik olarak ayarlandı
                             await checkAuthStatus();
                             document.getElementById('authModal').style.display = 'none';
+                            await loadUserChats(); // Sohbetleri yükle
                             alertMessage(`Hoş geldin, ${currentUsername}! ${isPremium ? 'Premium üyeliğin aktif. ✨' : 'HyperNova ile ücretsiz sohbet edebilirsin.'}`);
                         } else {
                              // Kayıt başarılıysa, Giriş moduna geç
@@ -1455,6 +1728,8 @@ def index():
                     const response = await fetch('/logout', { method: 'POST' });
                     if (response.ok) {
                         await checkAuthStatus();
+                        savedConversations = []; // Sohbetleri temizle
+                        updateSavedChatsList();
                         alertMessage('Başarıyla çıkış yaptın. Güle güle! 👋');
                         // Çıkış yapınca Kaia'yı devre dışı bırak
                         if (currentPersona === 'kaia') {
@@ -1508,6 +1783,8 @@ def index():
                         isPremium = false;
                         kaiaOption.setAttribute('disabled', 'disabled');
                         kaiaOption.textContent = 'Kaia (Anime) (Premium) 🌠';
+                        savedConversations = [];
+                        updateSavedChatsList();
                     }
                     
                 } catch (error) {
@@ -1604,26 +1881,6 @@ def index():
                 }
             }
 
-            // --- Local Storage ve History Yönetimi (Güncellendi: Manuel Kaydetme) ---
-            function loadSavedConversations() {
-                try {
-                    const saved = localStorage.getItem('hypernova_saved_conversations');
-                    if (saved) {
-                        savedConversations = JSON.parse(saved);
-                        // 20 gün kuralı: Eski sohbetleri filtrele
-                        const now = Date.now();
-                        const TWENTY_DAYS_MS = 20 * 24 * 60 * 60 * 1000;
-                        savedConversations = savedConversations.filter(chat => now - chat.last_updated <= TWENTY_DAYS_MS);
-                        localStorage.setItem('hypernova_saved_conversations', JSON.stringify(savedConversations));
-                    }
-                    updateSavedChatsList();
-                } catch (e) {
-                    console.error("Kaydedilen sohbetler yüklenirken hata:", e);
-                    savedConversations = [];
-                    updateSavedChatsList();
-                }
-            }
-            
             function displayInitialGreeting() {
                 const greetingText = GREETINGS[currentPersona].text;
                 displayMessage('bot', greetingText, false);
@@ -1775,9 +2032,9 @@ def index():
             
 
             // Sayfa Yüklendiğinde
-            document.addEventListener('DOMContentLoaded', () => {
-                loadSavedConversations(); // Kaydedilen sohbetleri yükle
-                checkAuthStatus(); // Premium ve auth kontrolü
+            document.addEventListener('DOMContentLoaded', async () => {
+                await loadUserChats(); // Kaydedilen sohbetleri yükle (giriş yapmadan boş)
+                await checkAuthStatus(); // Premium ve auth kontrolü
                 updateUIForPersona(); // Persona UI güncelle
                 displayInitialGreeting(); // İlk mesajı göster
             });
@@ -1806,14 +2063,17 @@ def index():
 
 
 if __name__ == '__main__':
-    # Geliştirici kullanıcısını önceden kaydet (in-memory demo için)
-    # Bu veritabanı boşsa ilk kez sunucu başladığında çalışır.
-    if DEVELOPER_USERNAME not in USER_DB:
-        USER_DB[DEVELOPER_USERNAME] = {
-            'username': DEVELOPER_USERNAME,
-            'password': DEVELOPER_PASSWORD,
-            'premium_until': datetime.now() + timedelta(days=9999) # Geliştirici her zaman premium
-        }
+    # Geliştirici kullanıcısını önceden kaydet (DB'ye)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM users WHERE username = ?", (DEVELOPER_USERNAME,))
+    if not cursor.fetchone():
+        cursor.execute("""
+            INSERT INTO users (username, password, premium_until) 
+            VALUES (?, ?, datetime('now', '+9999 days'))
+        """, (DEVELOPER_USERNAME, DEVELOPER_PASSWORD))
+        conn.commit()
         logger.info(f"Geliştirici kullanıcısı '{DEVELOPER_USERNAME}' sisteme eklendi.")
+    conn.close()
 
     app.run(debug=True, host='0.0.0.0', port=5000)
