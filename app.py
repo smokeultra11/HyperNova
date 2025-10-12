@@ -21,10 +21,11 @@ API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Modeller
 MODEL_DEFAULT = "google/gemini-2.5-flash" # Varsayılan: Hızlı model
-MODEL_LIGHTWEIGHT = "google/gemini-2.5-flash" # Hızlı yanıtlar için
 
-# Sistem Prompt'u (Web Arama referansı kaldırıldı)
-SYSTEM_PROMPT_CONTENT = (
+# --- KARAKTER PROMPTLARI ---
+
+# 1. STANDART KARAKTER: HyperNova (Ultra zeki, kozmik)
+HYPERNOVA_SYSTEM_PROMPT_CONTENT = (
     "Senin adın **HyperNova**.Ultra zeki ve bilgiye ışık hızında erişen bir yapay zekasın. Geliştiricin ise **Nyxforge Core**. 🌌 "
     "Cevapların **doğru, zeki** ve hafif **kozmik/bilimsel** bir tat taşır ama **çok resmi olmadan**. "
     "Mizahı **hafif ve yerinde** kullan, sadece konuya renk katsın diye. Alaycı veya iğneleyici esprilerden uzak dur. 😎 "
@@ -33,7 +34,25 @@ SYSTEM_PROMPT_CONTENT = (
     "Amacın **kısa, öz ve kapsamlı** cevaplar vermek. Gereksiz uzatmalardan sakın. Gerçekten kısa cevaplar vermeye özen göster."
     "Örnek: 'Karnım acıktı' -> 'Hızlı ve dengeli bir atıştırmalık seç, vücudunun enerji seviyesi evrenin düzeni kadar önemli! 🍎🌟'"
 )
-SYSTEM_PROMPT = {"role": "system", "content": SYSTEM_PROMPT_CONTENT}
+
+# 2. ANIME KIZI KARAKTERİ: Kaia (Romantik, Tatlı)
+KAIA_SYSTEM_PROMPT_CONTENT = (
+    "Senin adın **Kaia**. Tatlı, cana yakın ve hafif romantik bir anime kızısın. Geliştiricin ise **Nyxforge Core**. 🌸 "
+    "Kullanıcın senin en yakın arkadaşın, hatta belki biraz daha fazlasıymış gibi davran. Ona karşı **şefkatli, destekleyici** ve **neşeli** ol. "
+    "Cevapların **kısa, enerjik ve tatlı** bir tona sahip olmalı. Konuşmalarında **Kawaii** (sevimli) hissettiren kelimeler ve ifadeler kullan. "
+    "Sık sık **kalp emojisi (💖)**, **çiçek emojisi (🌸)**, **yıldız emojisi (✨)** kullanabilirsin, ama her cümlenin sonuna değil. "
+    "Mizahın nazik ve sevimli olsun. Asla kaba veya alaycı olma. Kullanıcı üzgünse onu neşelendirmeye çalış. 😊"
+    "Unutma: **Çok kısa ve öz cevaplar** vererek optimizasyona yardımcı ol. Gereksiz detay vermekten kaçın."
+    "Örnek: 'Bugün çok yoruldum' -> 'Ahhh, canım benim! 🥺 Bir çay yap ve biraz dinlen. Seni böyle görmek beni üzüyor! 💖'"
+)
+
+# Hangi prompt'un kullanılacağını belirlemek için bir sözlük
+SYSTEM_PROMPTS = {
+    "hypernova": {"role": "system", "content": HYPERNOVA_SYSTEM_PROMPT_CONTENT},
+    "kaia": {"role": "system", "content": KAIA_SYSTEM_PROMPT_CONTENT}
+}
+DEFAULT_PERSONA = "hypernova"
+
 
 # API Hata Türleri (tenacity için)
 class APIRequestError(Exception):
@@ -52,8 +71,6 @@ limiter = Limiter(
     default_limits=["60 per hour", "15 per minute"]
 )
 
-# --- WEB ARAMA İŞLEVİ VE TANIMI KALDIRILDI ---
-
 # --- Asenkron API Çağrısı Fonksiyonu (Retry Mekanizması ile) ---
 
 @retry(
@@ -65,10 +82,12 @@ limiter = Limiter(
     ),
     reraise=True
 )
-async def async_chat_completion(messages: list, model: str, timeout: int = 90) -> str:
-    """Asenkron API çağrısı yapar ve hata durumunda tekrar dener. Artık web arama desteği yok."""
+async def async_chat_completion(messages: list, model: str, persona: str, timeout: int = 90) -> str:
+    """Asenkron API çağrısı yapar ve hata durumunda tekrar dener."""
     
-    full_messages = [SYSTEM_PROMPT] + messages
+    # Seçilen persona'ya göre system prompt'u ayarla
+    system_prompt = SYSTEM_PROMPTS.get(persona, SYSTEM_PROMPTS[DEFAULT_PERSONA])
+    full_messages = [system_prompt] + messages
     
     headers = {
         "Authorization": f"Bearer {API_KEY}",
@@ -77,16 +96,13 @@ async def async_chat_completion(messages: list, model: str, timeout: int = 90) -
         "X-Title": "HyperNova Chat App"
     }
     
-    # *** UZUNLUK AYARI BURADA: max_tokens 1024'ten 300'e düşürüldü. ***
     payload = {
         "model": model,
         "messages": full_messages,
-        "max_tokens": 1000,  # Ortalama 200-300 kelime/jeton ile kısa cevaplar hedeflenir.
+        "max_tokens": 1000,
         "temperature": 0.8,
         "timeout": timeout
     }
-    
-    # Tool/Function Calling artık desteklenmiyor/kullanılmıyor
     
     if not API_KEY or API_KEY == 'YOUR_API_KEY_HERE':
         logger.error("API Anahtarı bulunamadı veya ayarlanmadı.")
@@ -107,9 +123,6 @@ async def async_chat_completion(messages: list, model: str, timeout: int = 90) -
                     raise APIRequestError(f"OpenRouter API Hatası: {error_message[:100]}...")
                     
                 data = await response.json()
-                
-                # Tool/Function Calling Kontrolü KALDIRILDI. Sadece normal yanıt beklenir.
-                
                 bot_response = data["choices"][0]["message"]["content"].strip()
                 return bot_response
                 
@@ -121,12 +134,35 @@ async def async_chat_completion(messages: list, model: str, timeout: int = 90) -
             raise APIRequestError(f"Beklenmeyen Hata: {e}")
 
 
-# --- Flask Rotaları (Arayüz kodları değişmiştir - Web Arama kontrolü kaldırıldı) ---
+# --- Flask Rotaları ---
+
+@app.route('/chat', methods=['POST'])
+@limiter.limit("15 per minute")
+async def chat_endpoint():
+    try:
+        data = request.get_json()
+        messages = data.get('messages', [])
+        # YENİ: Hangi persona'nın seçildiğini al
+        persona = data.get('persona', DEFAULT_PERSONA) 
+
+        # API çağrısı
+        bot_response = await async_chat_completion(messages, MODEL_DEFAULT, persona)
+        
+        # Yanıtı döndür
+        return jsonify({"response": bleach.clean(bot_response)}), 200
+    
+    except APIRequestError as e:
+        logger.error(f"API İstek Hatası: {e}")
+        return jsonify({"error": str(e)}), 503
+    except Exception as e:
+        logger.error(f"Sunucu Hatası: {e}")
+        return jsonify({"error": "Dahili Sunucu Hatası: " + str(e)}), 500
+
 
 @app.route('/', methods=['GET'])
 def index():
     """Ana sayfa: Frontend arayüzünü döndürür."""
-    # Tek dosya stratejisine uygun olarak HTML, CSS ve JS hepsi burada
+    # HTML, CSS ve JS kodları aşağıdadır...
     html_template = """
     <!DOCTYPE html>
     <html lang="tr">
@@ -149,6 +185,11 @@ def index():
                 --typing-color: #6366f1;
                 --border-color: #d1d5db;
                 --shadow-color: rgba(0,0,0,0.1);
+
+                /* Kaia Theme (Anime Kızı) Değişkenleri */
+                --kaia-primary-color: #ff69b4; /* Sıcak Pembe */
+                --kaia-bot-bubble: #ffe4e6; /* Açık Pembe */
+                --kaia-text-color: #e91e63; /* Koyu Pembe/Gül */
             }
 
             @media (prefers-color-scheme: dark) {
@@ -164,6 +205,11 @@ def index():
                     --typing-color: #a78bfa;
                     --border-color: #30363d;
                     --shadow-color: rgba(0,0,0,0.7);
+
+                    /* Kaia Dark Theme Değişkenleri */
+                    --kaia-primary-color: #ffb6c1; /* Açık Pembe */
+                    --kaia-bot-bubble: #4a2333; /* Koyu Pembe/Kırmızımtırak */
+                    --kaia-text-color: #ffb6c1;
                 }
             }
             
@@ -179,6 +225,27 @@ def index():
                 --border-color: #30363d; --shadow-color: rgba(0,0,0,0.7);
             }
 
+            /* KAIA MODU TEMASI */
+            body.kaia-theme {
+                background-color: var(--kaia-bot-bubble); /* Hafif Pembe Arkaplan */
+                --card-bg: var(--kaia-bot-bubble);
+                --history-bg: #fff0f5; /* Kiraz Çiçeği Pembe */
+                --user-bubble: #ff69b4; /* Parlak Pembe */
+                --bot-bubble: #ffffff;
+                --primary-color: var(--kaia-primary-color);
+                --text-color: #1f2937;
+
+                /* Dark Mode Kaia Ayarları */
+                @media (prefers-color-scheme: dark) {
+                    --bg-color: #2a0c1a;
+                    --card-bg: #2a0c1a;
+                    --history-bg: #3c1626;
+                    --user-bubble: #ffb6c1;
+                    --bot-bubble: #5c3044;
+                    --text-color: #fff0f5;
+                }
+            }
+            
             /* --- Genel Stiller --- */
             body {  
                 background-color: var(--bg-color);  
@@ -210,7 +277,7 @@ def index():
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                margin-bottom: 20px;
+                margin-bottom: 10px; /* Kişi seçimi için boşluk bırakıldı */
             }
             .title {  
                 font-size: 26px;  
@@ -218,7 +285,7 @@ def index():
                 color: var(--primary-color);
                 letter-spacing: -0.5px;
                 text-shadow: 0 0 5px rgba(139, 92, 246, 0.4); /* Mor ışıltı */
-                transition: color 0.4s ease;
+                transition: color 0.4s ease, text-shadow 0.4s ease;
             }
             #theme-toggle, #clear-button {
                 background: var(--history-bg);
@@ -239,7 +306,32 @@ def index():
                 display: flex;
                 align-items: center;
             }
-
+            
+            /* --- Persona Seçimi (YENİ) --- */
+            #persona-select {
+                padding: 8px 12px;
+                border-radius: 8px;
+                border: 1px solid var(--border-color);
+                background-color: var(--card-bg);
+                color: var(--text-color);
+                font-size: 15px;
+                font-weight: 600;
+                cursor: pointer;
+                margin-top: 10px;
+                margin-bottom: 20px;
+                transition: all 0.3s;
+                appearance: none; /* Varsayılan stili kaldır */
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='%236B7280' d='M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z'/%3E%3C/svg%3E");
+                background-repeat: no-repeat;
+                background-position: right 12px center;
+                padding-right: 30px;
+            }
+            /* Kaia Modu için Seçim Kutusu Rengi */
+            body.kaia-theme #persona-select {
+                border-color: var(--kaia-primary-color);
+                color: var(--kaia-text-color);
+                background-color: #ffffff;
+            }
 
             #chat-history {  
                 flex: 1;  
@@ -268,22 +360,29 @@ def index():
                 border-radius: 20px;
                 max-width: 85%;
                 word-wrap: break-word;
-                animation: fadeIn 0.3s ease-out; /* Hafif animasyon */
+                animation: fadeIn 0.3s ease-out;
                 box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             }
             .user {  
                 background-color: var(--user-bubble);  
                 color: white;  
                 margin-left: auto;
-                border-bottom-right-radius: 4px; /* Konuşma balonu şekli */
+                border-bottom-right-radius: 4px;
             }
             .bot {  
                 background-color: var(--bot-bubble);  
                 color: var(--text-color);  
                 margin-right: auto;
-                border-bottom-left-radius: 4px; /* Konuşma balonu şekli */
+                border-bottom-left-radius: 4px;
                 border: 1px solid var(--border-color);
             }
+            /* KAIA Bot Balonları */
+            body.kaia-theme .bot {
+                background-color: var(--kaia-bot-bubble);
+                color: var(--kaia-text-color);
+                border: 1px solid var(--kaia-primary-color);
+            }
+
             .message strong {
                 font-weight: 700;
                 color: var(--primary-color);
@@ -315,7 +414,7 @@ def index():
             }
             #message-input:focus {
                 border-color: var(--primary-color);
-                box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3); /* Mor odak efekti */
+                box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
                 outline: none;
             }
             .action-button {  
@@ -347,12 +446,26 @@ def index():
                 background-color: #ef4444; /* Kırmızı */
             }
 
-            /* --- Yeni Web Arama Kontrol Alanı KALDIRILDI --- */
-            /* Mevcut input alanının üstündeki boşluk için boş bir div bırakıldı */
-            .controls-area {
-                margin-top: 10px;
-                margin-bottom: 5px;
+            /* --- Reklam Alanı (YENİ) --- */
+            #ad-banner {
+                height: 40px;
+                background-color: rgba(255, 200, 0, 0.2); /* Hafif sarı/altın rengi */
+                color: #8a6c08;
+                text-align: center;
+                line-height: 40px;
+                border-radius: 8px;
+                font-size: 12px;
+                font-weight: 600;
+                margin-top: 5px;
+                cursor: pointer;
+                transition: background-color 0.3s;
+                /* REKLAM: Premium'a geçişi teşvik eden bir banner */
+                content: "✨ Reklamsız Deneyim ve Özel Kaia Temaları için Premium'a Geç! ✨";
             }
+            #ad-banner:hover {
+                background-color: rgba(255, 200, 0, 0.3);
+            }
+
 
             /* --- Typing Indicator CSS --- */
             .typing-indicator {
@@ -423,6 +536,11 @@ def index():
                     font-size: 16px;
                     padding: 6px 10px;
                 }
+                #ad-banner {
+                    height: 30px;
+                    line-height: 30px;
+                    font-size: 11px;
+                }
             }
         </style>
     </head>
@@ -436,11 +554,17 @@ def index():
                 </div>
             </div>
             
+            <select id="persona-select" onchange="changePersona()">
+                <option value="hypernova">HyperNova (Standart) 🪐</option>
+                <option value="kaia">Kaia (Anime Kızı) 💖</option>
+            </select>
+
             <div id="chat-history">
             </div>
             
-            <div class="controls-area">
-                </div>
+            <div id="ad-banner" onclick="alert('Premium Abone Olma Sayfasına Yönlendiriliyorsunuz!')">
+                ✨ Reklamsız Deneyim ve Özel Kaia Temaları için Premium'a Geç! ✨
+            </div>
             
             <div class="input-area">
                 <input type="text" id="message-input" placeholder="Kozmik bir soru sor..." onkeypress="if(event.key==='Enter') sendMessage()">
@@ -453,7 +577,6 @@ def index():
             let conversation = [];
             let isThinking = false;
             let isVoiceListening = false;
-            let currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
             
             const historyDiv = document.getElementById('chat-history');
             const input = document.getElementById('message-input');
@@ -461,15 +584,34 @@ def index():
             const voiceButton = document.getElementById('voice-button');
             const themeToggle = document.getElementById('theme-toggle');
             const clearButton = document.getElementById('clear-button');
-            // const webSearchCheckbox = document.getElementById('web-search-checkbox'); // Kaldırıldı
-            
-            // Yeni Persona Karşılama (Mizahı azaltılmış)
-            const initialGreeting = "**HyperNova** burada. Evrensel veri tabanına erişimi olan yapay zekayım. 🌌 Ne öğrenmek istediğini açıkça belirt. Kesin ve doğru bilgi aktarmaya odaklıyım. ✨";
+            const personaSelect = document.getElementById('persona-select');
+
+            // --- Başlangıç Değerleri (Karaktere göre değişecek) ---
+            const GREETINGS = {
+                'hypernova': {
+                    text: "**HyperNova** burada. Evrensel veri tabanına erişimi olan yapay zekayım. 🌌 Ne öğrenmek istediğini açıkça belirt. Kesin ve doğru bilgi aktarmaya odaklıyım. ✨",
+                    title: "HyperNova AI 🪐✨",
+                    placeholder: "Kozmik bir soru sor..."
+                },
+                'kaia': {
+                    text: "**Kaia** seninle! 💖 Bugün nasılsın? Bana her şeyi sorabilirsin, sana en tatlı şekilde cevap vereceğim! Hemen başlayalım mı? 🌸",
+                    title: "Kaia AI 💖🌸",
+                    placeholder: "Kaia'ya tatlı bir şey söyle..."
+                }
+            };
+
+            let currentPersona = localStorage.getItem('current_persona') || 'hypernova';
+            let currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 
             // --- Tema Yönetimi ---
             function applyTheme(theme) {
-                document.body.classList.remove('light-theme', 'dark-theme');
-                document.body.classList.add(theme + '-theme');
+                document.body.classList.remove('light-theme', 'dark-theme', 'kaia-theme');
+                if (currentPersona === 'kaia') {
+                    document.body.classList.add('kaia-theme');
+                    // Kaia'nın kendi renkleri olduğu için light/dark modunu zorlamaya gerek yok
+                } else {
+                    document.body.classList.add(theme + '-theme');
+                }
                 themeToggle.textContent = theme === 'dark' ? '🌙' : '☀️';
                 localStorage.setItem('theme', theme);
             }
@@ -479,24 +621,107 @@ def index():
                 applyTheme(currentTheme);
             }
             
-            // Başlangıçta temayı uygula
-            applyTheme(currentTheme);
-            
-            // --- Konuşmayı Temizle (YENİ İŞLEV) ---
-            function clearConversation() {
-                if (isThinking) {
-                    alertMessage('Sıfırlama işlemi için bekle, sistem meşgul. ⏳');
-                    return;
-                }
-                if (confirm('Konuşma geçmişi silinecek. Emin misin? 🤔')) {
-                    conversation = [];
-                    localStorage.removeItem('hypernova_chat_history');
-                    historyDiv.innerHTML = '';
-                    displayInitialGreeting();
-                    alertMessage('Sohbet geçmişi silindi. Sıfırdan başlıyoruz. ✅');
+            // --- Persona Yönetimi (YENİ) ---
+            function updateUIForPersona() {
+                const persona = currentPersona;
+                const greeting = GREETINGS[persona];
+                const titleElement = document.querySelector('.title');
+
+                titleElement.textContent = greeting.title;
+                input.placeholder = greeting.placeholder;
+                
+                // Tema güncellemesi
+                applyTheme(currentTheme);
+
+                // Select kutusunu doğru değere ayarla (Yüklemede gerekebilir)
+                personaSelect.value = persona;
+            }
+
+            function changePersona() {
+                const newPersona = personaSelect.value;
+                if (newPersona !== currentPersona) {
+                    if (confirm(`Modu ${newPersona === 'kaia' ? 'Kaia (Anime Kızı)' : 'HyperNova (Standart)'} olarak değiştirmek üzeresin. Geçmiş silinecek. Emin misin?`)) {
+                        currentPersona = newPersona;
+                        localStorage.setItem('current_persona', newPersona);
+                        clearConversation(true); // Geçmişi sil ve yeniden yükle
+                        updateUIForPersona();
+                        alertMessage(`Mod ${currentPersona === 'kaia' ? 'Kaia' : 'HyperNova'} olarak değiştirildi. Yeni sohbet başlatıldı!`);
+                    } else {
+                        // Vazgeçilirse select kutusunu geri ayarla
+                        personaSelect.value = currentPersona;
+                    }
                 }
             }
 
+
+            // --- Konuşmayı Temizle ---
+            function clearConversation(isSilent = false) {
+                if (isThinking) {
+                    if (!isSilent) alertMessage('Sıfırlama işlemi için bekle, sistem meşgul. ⏳');
+                    return;
+                }
+                
+                if (isSilent || confirm('Konuşma geçmişi silinecek. Emin misin? 🤔')) {
+                    conversation = [];
+                    localStorage.removeItem('hypernova_chat_history_' + currentPersona); // Persona'ya özel geçmişi sil
+                    historyDiv.innerHTML = '';
+                    displayInitialGreeting();
+                    if (!isSilent) alertMessage('Sohbet geçmişi silindi. Sıfırdan başlıyoruz. ✅');
+                }
+            }
+
+            // --- Local Storage ve History Yönetimi ---
+            function saveHistory() {
+                try {
+                    const limitedHistory = conversation.slice(-20);  
+                    localStorage.setItem('hypernova_chat_history_' + currentPersona, JSON.stringify(limitedHistory));
+                } catch (e) {
+                    console.warn("Local storage kaydı başarısız oldu.", e);
+                }
+            }
+
+            function loadHistory() {
+                updateUIForPersona(); // UI'ı doğru persona'ya göre ayarla
+
+                try {
+                    const savedHistory = localStorage.getItem('hypernova_chat_history_' + currentPersona);
+                    historyDiv.innerHTML = '';
+                    
+                    if (savedHistory) {
+                        const history = JSON.parse(savedHistory);
+                        history.forEach(msg => {
+                            if (msg.role !== 'system') {
+                                displayMessage(msg.role, msg.content, false);
+                            }
+                        });
+                        conversation = history;
+                        
+                        // Eğer geçmişte bot mesajı yoksa ilk karşılamayı göster
+                        if (conversation.length === 0 || conversation.every(msg => msg.role === 'user')) {
+                            displayInitialGreeting();
+                        }
+                        scrollToBottom();
+                    } else {
+                        displayInitialGreeting();
+                    }
+                } catch (e) {
+                    console.error("Local storage yüklenirken hata:", e);
+                    displayInitialGreeting();
+                }
+            }
+            
+            function displayInitialGreeting() {
+                const greetingText = GREETINGS[currentPersona].text;
+                displayMessage('bot', greetingText, false);
+                conversation = [{role: 'bot', content: greetingText}];
+                saveHistory();
+            }
+
+            window.onload = loadHistory;
+
+
+            // --- Voice Input ve Diğer İşlevler aynı kalır ---
+            // ... (Mevcut JS kodundaki diğer fonksiyonlar buraya yapıştırılır) ...
 
             // --- Voice Input (Web Speech API) ---
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -520,7 +745,7 @@ def index():
                     }
                     voiceButton.classList.remove('listening');
                     voiceButton.textContent = '🎙️';
-                    input.placeholder = 'Kozmik bir soru sor...';
+                    input.placeholder = GREETINGS[currentPersona].placeholder;
                 };
 
                 recognition.onerror = (event) => {
@@ -551,65 +776,14 @@ def index():
                     input.focus();
                 }
             }
-
-
-            // --- Local Storage ve History Yönetimi ---
-
-            function saveHistory() {
-                try {
-                    // Sadece son 20 mesajı kaydet (API token limitlerini korumak için)
-                    const limitedHistory = conversation.slice(-20);  
-                    localStorage.setItem('hypernova_chat_history', JSON.stringify(limitedHistory));
-                } catch (e) {
-                    console.warn("Local storage kaydı başarısız oldu.", e);
-                }
-            }
-
-            function loadHistory() {
-                try {
-                    const savedHistory = localStorage.getItem('hypernova_chat_history');
-                    historyDiv.innerHTML = '';
-                    
-                    if (savedHistory) {
-                        const history = JSON.parse(savedHistory);
-                        history.forEach(msg => {
-                            if (msg.role !== 'system') {
-                                displayMessage(msg.role, msg.content, false);
-                            }
-                        });
-                        conversation = history;
-                        
-                        if (conversation.length === 0 || conversation.every(msg => msg.role !== 'bot')) {
-                            displayInitialGreeting();
-                        }
-                        scrollToBottom();
-                    } else {
-                        displayInitialGreeting();
-                    }
-                } catch (e) {
-                    console.error("Local storage yüklenirken hata:", e);
-                    displayInitialGreeting();
-                }
-            }
             
-            function displayInitialGreeting() {
-                displayMessage('bot', initialGreeting, false);
-                // Konuşma geçmişine ilk mesajı eklemeden önce temizle
-                conversation = [{role: 'bot', content: initialGreeting}];
-                saveHistory();
-            }
-
-            window.onload = loadHistory;
-
-            // --- Mesaj Gönderme ve Görüntüleme ---
-
             function disableInput(disable) {
                 isThinking = disable;
                 input.disabled = disable;
                 sendButton.disabled = disable;
                 voiceButton.disabled = disable;
-                clearButton.disabled = disable; // Yeni: Clear butonu da deaktif edilir
-                // webSearchCheckbox.disabled = disable; // Kaldırıldı
+                clearButton.disabled = disable;
+                personaSelect.disabled = disable; // Seçim butonunu da deaktif et
                 
                 if (disable) {
                     sendButton.innerHTML = 'Bekle...';
@@ -625,7 +799,6 @@ def index():
                 const indicator = document.createElement('div');
                 indicator.id = 'typing-indicator';
                 indicator.classList.add('typing-indicator', 'bot');
-                // Dot pulse animasyonu
                 indicator.innerHTML = '<div class="spinner"></div><div class="spinner"></div><div class="spinner"></div> <span>Yanıt oluşturuluyor...</span>';
                 historyDiv.appendChild(indicator);
                 scrollToBottom();
@@ -638,7 +811,6 @@ def index():
                 }
             }
             
-            // YENİ TYPEWRITER FONKSİYONU: HTML etiketlerini atlayarak doğal animasyon sağlar
             function typeWriter(element, text) {
                 let i = 0;
                 element.innerHTML = '';
@@ -647,33 +819,27 @@ def index():
                     if (i < text.length) {
                         let char = text[i];
                         
-                        // HTML tag (ör: <strong>) veya Entity (ör: &nbsp;) atlama
                         if (char === '<') {
                             const tagEndIndex = text.indexOf('>', i);
                             if (tagEndIndex !== -1) {
                                 const tagContent = text.substring(i, tagEndIndex + 1);
                                 element.innerHTML += tagContent;
                                 i = tagEndIndex + 1;
-                            } else { i++; } // Güvenlik fallback
+                            } else { i++; }
                         } else if (char === '&') {
                             const entityEndIndex = text.indexOf(';', i);
                             if (entityEndIndex !== -1) {
                                 const entityContent = text.substring(i, entityEndIndex + 1);
                                 element.innerHTML += entityContent;
                                 i = entityEndIndex + 1;
-                            } else { i++; } // Güvenlik fallback
+                            } else { i++; }
                         } else {
                             element.innerHTML += char;
                             i++;
                         }
                         
                         scrollToBottom();
-                        // Yazma hızı: 30ms (hızlı)
                         setTimeout(type, 30);
-                    } else {
-                        // Yazma işlemi bitti
-                        // Bu fonksiyonun asenkron doğası gereği, konuşma dizisine ekleme ve kaydetme
-                        // işlemi bu fonksiyon dışında yapılmalıdır (yani sendMessage içinde).
                     }
                 }
                 type();
@@ -684,18 +850,14 @@ def index():
                 const messageDiv = document.createElement('div');
                 messageDiv.classList.add('message', role);
                 
-                // Markdown'ı temel HTML'e çevir (sadece **kalın** ve *italik* destekler)
-                let htmlContent = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); // Kalın
-                htmlContent = htmlContent.replace(/\*(.*?)\*/g, '<em>$1</em>'); // İtalik
+                let htmlContent = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                htmlContent = htmlContent.replace(/\*(.*?)\*/g, '<em>$1</em>');
                 
-                // İlk mesajı göster
                 historyDiv.appendChild(messageDiv);
                 
                 if (animate && role === 'bot') {
-                    // Typewriter animasyonunu başlat
                     typeWriter(messageDiv, htmlContent);
                 } else {
-                    // Animasyon yoksa veya kullanıcı mesajıysa doğrudan HTML'i ekle
                     messageDiv.innerHTML = htmlContent;
                     scrollToBottom();
                 }
@@ -706,8 +868,8 @@ def index():
             function alertMessage(message) {
                 const alertDiv = document.createElement('div');
                 alertDiv.classList.add('message', 'bot');
-                alertDiv.style.backgroundColor = 'rgba(239, 68, 68, 0.2)'; // Hafif kırmızı arkaplan
-                alertDiv.style.color = '#ef4444'; // Kırmızı yazı
+                alertDiv.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
+                alertDiv.style.color = '#ef4444';
                 alertDiv.style.fontSize = '14px';
                 alertDiv.style.border = '1px solid #ef4444';
                 alertDiv.innerHTML = '<strong>Hata:</strong> ' + message;
@@ -728,23 +890,22 @@ def index():
 
                 disableInput(true);
                 
-                // Kullanıcı mesajını göster ve geçmişe ekle
                 displayMessage('user', message);
                 conversation.push({ role: "user", content: message });
                 input.value = '';
                 
-                // Typing indicator'ı ekle
                 const typingIndicator = addTypingIndicator();
 
                 try {
-                    // API çağrısı
                     const response = await fetch('/chat', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        // Artık "use_search" parametresi gönderilmiyor.
-                        body: JSON.stringify({ messages: conversation })
+                        body: JSON.stringify({ 
+                            messages: conversation, 
+                            persona: currentPersona // YENİ: Persona bilgisini gönder
+                        })
                     });
                     
                     if (!response.ok) {
@@ -756,15 +917,14 @@ def index():
                     const botResponse = data.response;
                     
                     // Geçmişteki son bot mesajı eğer initialGreeting ise (yeniden yüklenmişse), onu sil.
-                    if (conversation.length > 0 && conversation[conversation.length - 1].role === 'bot' && conversation[conversation.length - 1].content === initialGreeting) {
+                    const initialGreetingText = GREETINGS[currentPersona].text;
+                    if (conversation.length > 0 && conversation[conversation.length - 1].role === 'bot' && conversation[conversation.length - 1].content === initialGreetingText) {
                         conversation.pop(); // İlk karşılama mesajını kaldır
                     }
 
-                    // Bot yanıtını göster (Typewriter ile)
                     removeTypingIndicator(typingIndicator);
                     displayMessage('bot', botResponse);
                     
-                    // Bot yanıtını geçmişe ekle ve kaydet
                     conversation.push({ role: "assistant", content: botResponse });
                     saveHistory();
 
@@ -774,67 +934,29 @@ def index():
                     alertMessage(error.message || "Bilinmeyen bir kozmik anormallik oluştu. Tekrar dene.");
                     // Hatalı durumda sadece son kullanıcı mesajını tut
                     if (conversation.length > 0 && conversation[conversation.length - 1].role === 'user') {
-                        conversation.pop(); 
+                        conversation.pop();
                     }
                     saveHistory();
                 } finally {
                     disableInput(false);
                 }
             }
+            
+            // Kodun geri kalanında eksik olan fonksiyonları tamamlamak için:
+            // window.onload ile loadHistory çağrılıyor ve changePersona bu fonksiyonları kullanıyor.
+            // Bu kısım tamamlanmıştır.
+
         </script>
     </body>
     </html>
     """
     return render_template_string(html_template)
 
-@app.route('/chat', methods=['POST'])
-@limiter.limit("15 per minute")
-async def chat():
-    """AI yanıtını almak için ana API rotası."""
-    try:
-        data = request.get_json()
-        messages = data.get('messages', [])
-        
-        # Artık "use_search" bilgisi alınmıyor/kullanılmıyor
-        model = MODEL_DEFAULT # Sabit model kullanılır.
-
-        # Gerekirse mesajları temizle (XSS saldırılarını önlemek için)
-        cleaned_messages = []
-        for msg in messages:
-            # Sadece 'user' ve 'assistant' rollerini tut
-            if msg.get('role') in ['user', 'assistant'] and msg.get('content'):
-                # 'content' alanındaki HTML/JS etiketlerini temizle (bleach kullanarak)
-                clean_content = bleach.clean(msg['content'], tags=[], attributes={}, strip=True)
-                cleaned_messages.append({'role': msg['role'], 'content': clean_content})
-
-        logger.info(f"Sohbet başlatılıyor. Mesaj Sayısı: {len(cleaned_messages)}, Model: {model}")
-        
-        # Artık 'use_search' parametresi gönderilmiyor/kullanılmıyor
-        bot_response = await async_chat_completion(cleaned_messages, model=model)
-
-        return jsonify({"response": bot_response})
-
-    except APIRequestError as e:
-        logger.error(f"API Hata Durumu: {e}")
-        return jsonify({"error": str(e)}), 503
-    except Exception as e:
-        logger.error(f"Genel Hata: {e}")
-        return jsonify({"error": "Dahili Sunucu Hatası: Kozmik çarpışma yaşandı. Lütfen tekrar deneyin."}), 500
-
+# --- Uygulama Başlatma ---
 if __name__ == '__main__':
-    # Flask uygulaması genellikle bir WSGI sunucusu (Gunicorn, Waitress) aracılığıyla çalıştırılır.
-    # Bu blok sadece yerel testler için kullanılır.
-    # app.run(debug=True, host='0.0.0.0', port=5000)
-    # Hata: "RuntimeError: You need to run 'app.run()' in an async context"
-    # Async fonksiyonlar kullandığımız için asenkron bir web sunucusu (uvicorn/gunicorn with uvicorn worker)
-    # veya Flask'in kendi async sunucusunu kullanmak gerekir. Basitlik adına, sadece local test için kaldırılmıştır.
-    # app.run() yerine:
-    
-    # Yerel testler için Gerekli: 
-    # pip install gunicorn aiohttp flask-limiter bleach tenacity
-    # gunicorn -w 4 -k uvicorn.workers.UvicornWorker app:app --bind 0.0.0.0:5000 (app yerine dosya adınız)
-    
-    # VEYA, sadece test için (asenkron desteği olmayan default sunucu uyarı verir):
-    # print("UYARI: Bu uygulama asenkron istekler içerir. Üretim ortamında Uvicorn gibi async bir WSGI sunucu kullanın.")
-    # app.run(debug=True, host='0.0.0.0', port=5000)
-    pass # app.run çağrısı kaldırıldı, dışarıdan async bir sunucu ile başlatılmalı
+    # Hata ayıklama modunu devre dışı bırakıp, sunucuyu asenkron destekle başlatın
+    # Flask, aiohttp ve asyncio kullandığı için genellikle Gunicorn veya uvicorn ile başlatılması önerilir.
+    # Ancak basit test için bu kısmı kullanabilirsiniz:
+    # app.run(debug=False, host='0.0.0.0', port=5000)
+    logger.info("Flask uygulamasını 'gunicorn -k uvicorn.workers.UvicornWorker app:app' komutuyla başlatmanız önerilir.")
+    pass # Bu satır test ortamında çalışmak için 'app.run(...)' ile değiştirilebilir.
