@@ -1,189 +1,585 @@
 import os
-from flask import Flask, request, jsonify, render_template_string
-import requests
 import logging
+import json
+import asyncio
+import aiohttp
+import bleach
 
-# Log ayarları (hata takibi için)
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+from flask import Flask, request, jsonify, render_template_string
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_cors import CORS
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
+# Log ayarları
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# --- Yapılandırma ---
+# API Key'i ortam değişkeninden al
+API_KEY = os.getenv('API_KEY', 'YOUR_API_KEY_HERE') # Eğer env'de yoksa placeholder kullan
+API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+# Modeller
+MODEL_DEFAULT = "deepseek/deepseek-chat" # Varsayılan, daha yetenekli model
+MODEL_LIGHTWEIGHT = "gemini/gemini-2.5-flash" # "hızlı" anahtar kelimesi için daha hafif model
+
+# Sistem Prompt'u (eğlenceli, emoji ve kalın yazma talimatları eklendi)
+SYSTEM_PROMPT_CONTENT = (
+    "Sen HyperNova'sın, dostça, yardımcı ve **eğlenceli** bir AI asistanısın. Diğer AI'ler gibi yapmacık değilsin, neyse onu söylüyorsun. "
+    "Kullanıcı eğlenceli şeyler sever, bu yüzden cevaplarına bolca **emoji** 🤩 ve **kalın metinler** (Markdown ile) ekle. "
+    "Kullanıcıyla Türkçe konuş, cevaplarını doğal, bağlamlı ve coşkulu tut. "
+    "Önceki mesajları hatırla ve konuşmayı derinleştir. Hadi başlayalım! 🚀"
+)
+SYSTEM_PROMPT = {"role": "system", "content": SYSTEM_PROMPT_CONTENT}
+
+# API Hata Türleri (tenacity için)
+class APIRequestError(Exception):
+    """API isteği sırasında yaşanan hatalar için özel istisna."""
+    pass
+
+# --- Flask Uygulaması ve Eklentilerin Başlatılması ---
 app = Flask(__name__)
 
-# Senin ayarların (API anahtarını buraya koy, ama güvenli tut!)
-API_KEY = os.getenv('API_KEY')
-API_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "deepseek/deepseek-chat"
+# Flask-CORS: Frontend başka bir adresteyse izin verir
+CORS(app)
 
-SYSTEM_PROMPT = {
-    "role": "system",
-    "content": "Sen HyperNova'sın, dostça, yardımcı ve eğlenceli bir AI asistanısın. Kullanıcıyla Türkçe konuş, cevaplarını doğal ve bağlamlı tut. Önceki mesajları hatırla ve konuşmayı derinleştir."
-}
+# Flask-Limiter: IP adresine göre dakikada 5 istek limiti uygular
+limiter = Limiter(
+    app=app,
+    key_prefix="hypernova_chat",
+    key_func=get_remote_address,
+    default_limits=["15 per hour", "5 per minute"] # Genel limitler
+)
 
-# Sohbet geçmişi (her kullanıcı için basit, gerçekte veritabanı kullan)
-conversations = {}  # Kullanıcı ID'si ile sakla (şimdilik basit)
+# --- Asenkron API Çağrısı Fonksiyonu (Retry Mekanizması ile) ---
 
-@app.route('/')
+@retry(
+    stop=stop_after_attempt(3), # En fazla 3 kez dene
+    wait=wait_exponential(multiplier=1, min=2, max=10), # 2s, 4s, 8s bekleme
+    retry=retry_if_exception_type(APIRequestError), # Sadece APIRequestError için tekrar dene
+    before_sleep=lambda retry_state: logger.warning(
+        f"API isteği başarısız oldu. Tekrar deneniyor... (Deneme: {retry_state.attempt_number})"
+    ),
+    reraise=True
+)
+async def async_chat_completion(messages: list, model: str, timeout: int = 60) -> str:
+    """Asenkron API çağrısı yapar ve hata durumunda tekrar dener."""
+    
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json",
+        # OpenRouter gereksinimleri (uygulamanızın tanımlanması)
+        "HTTP-Referer": os.getenv('APP_DOMAIN', 'https://hypernova-ai.com'),
+        "X-Title": "HyperNova Chat App"
+    }
+    
+    payload = {
+        "model": model,
+        "messages": [SYSTEM_PROMPT] + messages,
+        "max_tokens": 500,
+        "temperature": 0.7,
+        "timeout": timeout # Timeout parametresi OpenRouter'da desteklenmiyorsa da aiohttp için önemli
+    }
+    
+    # aiohttp oturumu oluştur ve isteği gönder
+    async with aiohttp.ClientSession(trust_env=True) as session:
+        try:
+            # İsteğin timeout'u 60 saniye olarak ayarlandı
+            async with session.post(API_URL, json=payload, headers=headers, timeout=timeout) as response:
+                
+                if response.status != 200:
+                    error_text = await response.text()
+                    logger.error(f"API HTTP Hata Kodu: {response.status}, Cevap: {error_text}")
+                    # Tekrar denenmesi için özel hata fırlat
+                    raise APIRequestError(f"API HTTP Hatası: {response.status}")
+                    
+                data = await response.json()
+                bot_response = data["choices"][0]["message"]["content"].strip()
+                return bot_response
+        except asyncio.TimeoutError:
+            logger.error(f"API isteği zaman aşımına uğradı ({timeout} saniye).")
+            raise APIRequestError("API Zaman Aşımı")
+        except Exception as e:
+            logger.error(f"Beklenmeyen bir hata oluştu: {e}")
+            raise APIRequestError(f"Beklenmeyen Hata: {e}")
+
+
+# --- Flask Rotaları ---
+
+@app.route('/', methods=['GET'])
 def index():
-    # HTML arayüzü (CSS ve JS ile)
+    """Ana sayfa: Frontend arayüzünü döndürür."""
+    # Tek dosya stratejisine uygun olarak HTML, CSS ve JS hepsi burada
     html_template = """
     <!DOCTYPE html>
     <html lang="tr">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>HyperNova AI ✦ Akıllı Sohbet Asistanı</title>
+        <title>HyperNova AI ✦ Asenkron Sohbet</title>
         <style>
-            body { 
-                background-color: #16161a; 
-                color: #eaeaee; 
-                font-family: 'Arial', sans-serif; 
-                margin: 0; 
-                padding: 20px; 
-                display: flex; 
-                justify-content: center; 
-                align-items: center; 
-                height: 100vh; 
+            :root {
+                /* Dark Mode Varsayılan */
+                --bg-color: #16161a;
+                --card-bg: #1e1e2e;
+                --history-bg: #232326;
+                --text-color: #eaeaee;
+                --user-bubble: #6366f1; /* Indigo */
+                --bot-bubble: #2e2e33;
+                --primary-color: #6366f1;
+                --typing-color: #7aa2f7; /* Mavi tonu */
             }
-            .chat-container { 
-                width: 500px; 
-                height: 600px; 
-                background-color: #1e1e2e; 
-                border-radius: 12px; 
-                padding: 20px; 
-                box-shadow: 0 4px 20px rgba(0,0,0,0.5); 
-                display: flex; 
-                flex-direction: column; 
+
+            body {  
+                background-color: var(--bg-color);  
+                color: var(--text-color);  
+                font-family: 'Inter', sans-serif; /* Daha modern font tercihi */
+                margin: 0;  
+                padding: 20px;  
+                display: flex;  
+                justify-content: center;  
+                align-items: center;  
+                min-height: 100vh;  
             }
-            .title { 
-                text-align: center; 
-                font-size: 24px; 
-                font-weight: bold; 
-                color: white; 
-                margin-bottom: 20px; 
-                text-shadow: 0 0 10px rgba(99, 102, 241, 0.5); 
+            .chat-container {  
+                width: 90%;
+                max-width: 550px; /* Sabit genişlik yerine max-width */
+                height: 80vh; /* Ekran yüksekliğinin %80'i */
+                max-height: 700px;
+                background-color: var(--card-bg);  
+                border-radius: 12px;  
+                padding: 20px;  
+                box-shadow: 0 8px 30px rgba(0,0,0,0.7);  
+                display: flex;  
+                flex-direction: column;  
+                transition: all 0.3s ease;
             }
-            #chat-history { 
-                flex: 1; 
-                background-color: #232326; 
-                border-radius: 8px; 
-                padding: 12px; 
-                overflow-y: auto; 
-                font-size: 14px; 
-                line-height: 1.4; 
-                margin-bottom: 10px; 
+            .title {  
+                text-align: center;  
+                font-size: 24px;  
+                font-weight: 700; /* Kalınlık */
+                color: white;  
+                margin-bottom: 20px;  
+                text-shadow: 0 0 10px rgba(99, 102, 241, 0.6);  
             }
-            .message { 
-                margin-bottom: 10px; 
-                padding: 8px; 
-                border-radius: 6px; 
+            #chat-history {  
+                flex: 1;  
+                background-color: var(--history-bg);  
+                border-radius: 8px;  
+                padding: 15px;  
+                overflow-y: auto;  
+                font-size: 15px;  
+                line-height: 1.5;  
+                margin-bottom: 15px;  
+                scroll-behavior: smooth;
             }
-            .user { 
-                background-color: #6366f1; 
-                color: white; 
-                text-align: right; 
+            .message {  
+                margin-bottom: 12px;  
+                padding: 10px 14px;  
+                border-radius: 18px; /* Daha yuvarlak köşeler */
+                max-width: 80%;
+                word-wrap: break-word; /* Uzun kelimeleri böler */
             }
-            .bot { 
-                background-color: #2e2e33; 
-                color: #eaeaee; 
+            .user {  
+                background-color: var(--user-bubble);  
+                color: white;  
+                margin-left: auto; /* Sağa hizala */
             }
-            .input-area { 
-                display: flex; 
-                gap: 10px; 
+            .bot {  
+                background-color: var(--bot-bubble);  
+                color: var(--text-color);  
+                margin-right: auto; /* Sola hizala */
             }
-            #message-input { 
-                flex: 1; 
-                padding: 10px; 
-                border: none; 
-                border-radius: 8px; 
-                background-color: #2e2e33; 
-                color: white; 
-                font-size: 14px; 
+            .message strong {
+                font-weight: bold;
             }
-            #send-button { 
-                padding: 10px 20px; 
-                background-color: #6366f1; 
-                color: white; 
-                border: none; 
-                border-radius: 8px; 
-                cursor: pointer; 
-                font-weight: bold; 
+            .input-area {  
+                display: flex;  
+                gap: 10px;  
             }
-            #send-button:hover { 
-                background-color: #7c83ff; 
+            #message-input {  
+                flex: 1;  
+                padding: 12px;  
+                border: 1px solid #444; /* Hafif bir kenarlık */
+                border-radius: 8px;  
+                background-color: #2e2e33;  
+                color: white;  
+                font-size: 15px;  
+                resize: none;
+                transition: border-color 0.3s;
             }
-            .typing { 
-                color: #7aa2f7; 
-                font-style: italic; 
+            #message-input:focus {
+                border-color: var(--primary-color);
+                outline: none;
+            }
+            .action-button {  
+                padding: 0 15px;
+                background-color: var(--primary-color);  
+                color: white;  
+                border: none;  
+                border-radius: 8px;  
+                cursor: pointer;  
+                font-weight: 600;
+                transition: background-color 0.2s, transform 0.1s;
+                display: flex;
+                align-items: center;
+                height: 44px; /* Input ile aynı hizada tutmak için */
+            }
+            .action-button:hover {  
+                background-color: #7c83ff;  
+            }
+            .action-button:disabled {
+                background-color: #4a4a50;
+                cursor: not-allowed;
+            }
+
+            /* --- Loading Spinner / Typing Indicator CSS --- */
+            .typing-indicator {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: var(--typing-color);
+                font-style: italic;
+                padding: 10px 14px;
+                margin-right: auto;
+                border-radius: 18px;
+            }
+            .spinner {
+                width: 10px;
+                height: 10px;
+                border: 2px solid var(--typing-color);
+                border-top-color: transparent;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+
+            /* --- Responsive CSS (Mobil için) --- */
+            @media (max-width: 768px) {
+                body {
+                    padding: 10px;
+                    align-items: flex-start;
+                }
+                .chat-container {
+                    width: 100%;
+                    height: 98vh;
+                    padding: 10px;
+                    border-radius: 0; /* Mobil ekranı doldur */
+                }
+                .title {
+                    font-size: 20px;
+                    margin-bottom: 15px;
+                }
+                .input-area {
+                    flex-direction: row;
+                }
+                #message-input {
+                    padding: 10px;
+                }
             }
         </style>
     </head>
     <body>
         <div class="chat-container">
-            <div class="title">HyperNova AI ✦ Derin Sohbet Modu</div>
+            <div class="title">HyperNova AI ✦ Asenkron Sohbet Asistanı 🚀</div>
             <div id="chat-history">
-                <div class="message bot"><strong style="color: #7aa2f7;">HyperNova:</strong> Selam! Ben HyperNova. DeepSeek entegrasyonuyla artık çok daha akıllı cevaplar verebiliyorum. Ne konuşmak istersin?</div>
+                <div class="message bot">
+                    <strong style="color: #7aa2f7;">HyperNova:</strong> Selam! Ben **HyperNova**! 🌟 Asenkron yapı sayesinde artık çok daha hızlı ve stabil çalışıyorum. Ne konuşmak istersin?
+                    (Sohbet geçmişin otomatik kaydediliyor!)
+                </div>
             </div>
             <div class="input-area">
-                <input type="text" id="message-input" placeholder="Bir şey yaz..." onkeypress="if(event.key==='Enter') sendMessage()">
-                <button id="send-button" onclick="sendMessage()">Gönder</button>
+                <input type="text" id="message-input" placeholder="Bir şey yaz veya mikrofonu kullan..." onkeypress="if(event.key==='Enter') sendMessage()">
+                <button id="voice-button" class="action-button" onclick="toggleVoiceInput()">🎙️</button>
+                <button id="send-button" class="action-button" onclick="sendMessage()">Gönder</button>
             </div>
         </div>
 
         <script>
-            let conversation = [];  // Sohbet geçmişi
+            let conversation = []; // Sohbet geçmişi (role, content objeleri)
+            let isThinking = false; // Bot düşünürken input'u engellemek için
+            let isVoiceListening = false; // Sesli dinleme açık mı?
+            const historyDiv = document.getElementById('chat-history');
+            const input = document.getElementById('message-input');
+            const sendButton = document.getElementById('send-button');
+            const voiceButton = document.getElementById('voice-button');
+
+            // --- Voice Input (Web Speech API) ---
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            let recognition;
+
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.lang = 'tr-TR';
+                recognition.interimResults = false;
+                recognition.maxAlternatives = 1;
+
+                recognition.onresult = (event) => {
+                    const speechResult = event.results[0][0].transcript;
+                    input.value = speechResult;
+                    toggleVoiceInput(); // Dinlemeyi kapat
+                    sendMessage(); // Mesajı otomatik gönder
+                };
+
+                recognition.onend = () => {
+                    if (isVoiceListening) {
+                        // Eğer kullanıcı kapatmadıysa, otomatik yeniden başlat
+                        // Bu, bazı tarayıcılarda sürekli dinleme için önemlidir.
+                        recognition.start();
+                    }
+                    voiceButton.textContent = '🎙️';
+                    voiceButton.style.backgroundColor = 'var(--primary-color)';
+                };
+
+                recognition.onerror = (event) => {
+                    console.error('Sesli tanıma hatası:', event.error);
+                    alertMessage('Sesli giriş hatası: ' + event.error);
+                    isVoiceListening = false;
+                    voiceButton.textContent = '🎙️';
+                    voiceButton.style.backgroundColor = 'var(--primary-color)';
+                };
+            } else {
+                // Tarayıcı desteklemiyorsa butonu gizle
+                voiceButton.style.display = 'none';
+                alertMessage('Tarayıcınız sesli girişi desteklemiyor. 😥');
+            }
+
+            function toggleVoiceInput() {
+                if (isVoiceListening) {
+                    isVoiceListening = false;
+                    recognition.stop();
+                    voiceButton.textContent = '🎙️';
+                    voiceButton.style.backgroundColor = 'var(--primary-color)';
+                    input.focus();
+                } else {
+                    if (isThinking) {
+                        alertMessage('Lütfen botun cevabını bekleyin!');
+                        return;
+                    }
+                    isVoiceListening = true;
+                    recognition.start();
+                    voiceButton.textContent = '🔴 Dinleniyor...';
+                    voiceButton.style.backgroundColor = 'red';
+                    input.placeholder = 'Lütfen konuşun...';
+                }
+            }
+
+
+            // --- Local Storage ve History Yönetimi ---
+
+            function saveHistory() {
+                try {
+                    localStorage.setItem('hypernova_chat_history', JSON.stringify(conversation));
+                } catch (e) {
+                    console.warn("Local storage kaydı başarısız oldu.", e);
+                }
+            }
+
+            function loadHistory() {
+                try {
+                    const savedHistory = localStorage.getItem('hypernova_chat_history');
+                    if (savedHistory) {
+                        const history = JSON.parse(savedHistory);
+                        // İlk karşılama mesajını temizle
+                        historyDiv.innerHTML = ''; 
+                        
+                        history.forEach(msg => {
+                            // Sadece sohbeti görsel olarak yükle, API'ye gönderilen sistem mesajını atla
+                            if (msg.role !== 'system') {
+                                displayMessage(msg.role, msg.content, false); // Typewriter kapalı
+                            }
+                        });
+                        conversation = history;
+                        scrollToBottom();
+                        // İlk mesajı (karşılama) tekrar ekle
+                        if (history.length === 0) {
+                            displayMessage('bot', 'Selam! Ben **HyperNova**! 🌟 Asenkron yapı sayesinde artık çok daha hızlı ve stabil çalışıyorum. Ne konuşmak istersin? (Sohbet geçmişin otomatik kaydediliyor!)', false);
+                        }
+                    } else {
+                        // İlk karşılama mesajını sohbet geçmişine ekle
+                        conversation.push({
+                            role: 'bot',
+                            content: 'Selam! Ben **HyperNova**! 🌟 Asenkron yapı sayesinde artık çok daha hızlı ve stabil çalışıyorum. Ne konuşmak istersin? (Sohbet geçmişin otomatik kaydediliyor!)'
+                        });
+                        saveHistory();
+                    }
+                } catch (e) {
+                    console.error("Local storage yüklenirken hata:", e);
+                }
+            }
+
+            // Sayfa yüklendiğinde geçmişi yükle
+            window.onload = loadHistory;
+
+            // --- Mesaj Gönderme ve Görüntüleme ---
+
+            function disableInput(disable) {
+                isThinking = disable;
+                input.disabled = disable;
+                sendButton.disabled = disable;
+                if (disable) {
+                    sendButton.innerHTML = 'Bekle...';
+                    voiceButton.disabled = disable;
+                } else {
+                    sendButton.innerHTML = 'Gönder';
+                    voiceButton.disabled = disable;
+                }
+            }
+
+            function addTypingIndicator() {
+                const indicator = document.createElement('div');
+                indicator.id = 'typing-indicator';
+                indicator.classList.add('typing-indicator', 'bot');
+                indicator.innerHTML = '<div class="spinner"></div> <span>Yazıyor...</span>';
+                historyDiv.appendChild(indicator);
+                scrollToBottom();
+                return indicator;
+            }
+
+            function removeTypingIndicator(indicator) {
+                if (indicator && indicator.parentNode) {
+                    indicator.parentNode.removeChild(indicator);
+                }
+            }
+
+            function displayMessage(sender, text, useTypewriter = true) {
+                const div = document.createElement('div');
+                div.classList.add('message', sender);
+                
+                // Markdown'ı basitçe kalın metne çevir (Markdown parser kullanmadan)
+                const formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+                if (sender === 'user') {
+                    div.innerHTML = `<strong style="color: #98c379;">Sen:</strong> ${formattedText}`;
+                } else {
+                    // Bot mesajı için başlangıçta sadece başlık ve boş içerik ekle
+                    div.innerHTML = `<strong style="color: var(--typing-color);">HyperNova:</strong> <span class="bot-text-content">${formattedText}</span>`;
+                }
+
+                historyDiv.appendChild(div);
+                scrollToBottom();
+
+                // Bot mesajı ise ve typewriter isteniyorsa
+                if (sender === 'bot' && useTypewriter) {
+                    const contentElement = div.querySelector('.bot-text-content');
+                    // Typewriter efekti
+                    typeWriter(contentElement, formattedText);
+                } else if (sender === 'bot') {
+                     // Typewriter istenmiyorsa (history yüklenirken), içeriği direkt göster
+                     const contentElement = div.querySelector('.bot-text-content');
+                     contentElement.innerHTML = formattedText;
+                }
+                
+                return div;
+            }
 
             function sendMessage() {
-                const input = document.getElementById('message-input');
+                if (isThinking) {
+                    alertMessage('Lütfen bekleyin! HyperNova hala düşünüyor... 🧠');
+                    return;
+                }
+
                 const message = input.value.trim();
                 if (!message) return;
 
                 // Kullanıcı mesajını ekle
-                addMessage('user', message);
+                displayMessage('user', message, false); // Kullanıcı mesajında typewriter yok
+                
+                // Konuşma geçmişine ekle
+                conversation.push({role: 'user', content: message});
+                saveHistory();
+
                 input.value = '';
+                disableInput(true); // Input'u ve Gönder butonunu devre dışı bırak
+                const typingIndicator = addTypingIndicator(); // "Yazıyor..." göster
 
                 // API'ye gönder (Flask'a POST)
                 fetch('/chat', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({message: message})
+                    body: JSON.stringify({
+                        message: message,
+                        history: conversation
+                    }) // Tüm geçmişi gönder
                 })
                 .then(response => response.json())
                 .then(data => {
-                    addMessage('bot', data.response);
+                    removeTypingIndicator(typingIndicator);
+                    disableInput(false);
+                    
+                    const botResponse = data.response;
+                    
+                    // Bot mesajını görüntüle (typewriter efektiyle)
+                    displayMessage('bot', botResponse, true); 
+                    
+                    // Konuşma geçmişine ekle ve kaydet
+                    conversation.push({role: 'bot', content: botResponse});
+                    saveHistory();
+
                 })
                 .catch(error => {
-                    addMessage('bot', 'Hata: Bağlantı sorunu!');
+                    removeTypingIndicator(typingIndicator);
+                    disableInput(false);
+                    console.error('API İsteği Hatası:', error);
+                    alertMessage('Hata: Sunucuya bağlanılamadı veya bir sorun oluştu. Lütfen tekrar deneyin. 😵‍💫');
                 });
             }
 
-            function addMessage(sender, text) {
-                const history = document.getElementById('chat-history');
-                const div = document.createElement('div');
-                div.classList.add('message', sender);
-                if (sender === 'user') {
-                    div.innerHTML = `<strong style="color: #98c379;">Sen:</strong> ${text}`;
-                } else {
-                    div.innerHTML = `<strong style="color: #7aa2f7;">HyperNova:</strong> ${text}`;
-                }
-                history.appendChild(div);
-                history.scrollTop = history.scrollHeight;
+            // --- Yardımcı Fonksiyonlar ---
 
-                // Bot için yavaş yazma efekti
-                if (sender === 'bot') {
-                    typeWriter(div.querySelector('strong').nextSibling, text);
-                }
+            function scrollToBottom() {
+                historyDiv.scrollTop = historyDiv.scrollHeight;
             }
 
             function typeWriter(element, text) {
                 let i = 0;
-                element.textContent = '';  // Temizle
+                // HTML içeriğini (kalın yazıları) koruyarak yazma efekti
+                element.innerHTML = ''; // Temizle
+                
+                // Karakterleri ve HTML etiketlerini doğru bir şekilde ayırmak için
+                const charArray = Array.from(text);
+
                 function type() {
-                    if (i < text.length) {
-                        element.textContent += text.charAt(i);
+                    if (i < charArray.length) {
+                        const char = charArray[i];
+                        
+                        // Basit markdown etiketlerini yakalamak için (şimdilik sadece ** kalın)
+                        if (char === '*' && charArray[i+1] === '*') {
+                            // ** açılış/kapanış etiketini yakala
+                            const tagEndIndex = text.indexOf('**', i + 2);
+                            if (tagEndIndex !== -1) {
+                                // Tam etiketi kopyala ve ilerle
+                                const tag = text.substring(i, tagEndIndex + 2);
+                                
+                                // Tag'i HTML olarak çevir: **...** -> <strong>...</strong>
+                                if (tag.startsWith('**') && tag.endsWith('**')) {
+                                    const innerText = tag.substring(2, tag.length - 2);
+                                    element.innerHTML += `<strong>${innerText}</strong>`;
+                                }
+                                
+                                i = tagEndIndex + 2; // İndeksi etiket sonuna taşı
+                                setTimeout(type, 10); // Hızlı geçiş
+                                return;
+                            }
+                        }
+                        
+                        element.innerHTML += char;
                         i++;
-                        setTimeout(type, 20);  // 20ms arayla karakter ekle
+                        setTimeout(type, 15); // 15ms arayla karakter ekle (Hızlı ve doğal)
                     }
+                    scrollToBottom();
                 }
                 type();
+            }
+
+            // Kullanıcıya görünür hata mesajı (alert yerine)
+            function alertMessage(message) {
+                console.warn(message);
+                // Basit bir modal/snackbar gösterimi de yapılabilir. Şimdilik sadece konsol.
             }
         </script>
     </body>
@@ -192,33 +588,64 @@ def index():
     return render_template_string(html_template)
 
 @app.route('/chat', methods=['POST'])
-def chat():
+@limiter.limit("5 per minute", override_defaults=False) # Rate limiting uygula
+async def chat():
+    """Asenkron sohbet uç noktası."""
     try:
+        # 1. Veriyi al
         data = request.json
-        user_message = data['message']
+        user_message_raw = data.get('message', '')
+        # Frontend'den gelen conversation history
+        conversation_history = data.get('history', [])
         
-        # Sohbet geçmişini al (basit, her seferinde yeni başla - geliştir)
-        conversation = [{"role": "user", "content": user_message}]
+        if not user_message_raw:
+            return jsonify({"response": "**Hata**: Boş mesaj gönderemezsiniz. 🤔"}), 400
+
+        # 2. Güvenlik: Kullanıcı input'unu sanitize et (XSS saldırılarını önle)
+        user_message_clean = bleach.clean(user_message_raw, tags=bleach.sanitizer.ALLOWED_TAGS, attributes=bleach.sanitizer.ALLOWED_ATTRIBUTES)
         
-        # API isteği (senin orijinal kodundan)
-        headers = {
-            "Authorization": f"Bearer {API_KEY}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://yourapp.com",
-            "X-Title": "HyperNova AI"
-        }
-        messages = [SYSTEM_PROMPT] + conversation
-        payload = {"model": MODEL, "messages": messages, "max_tokens": 500, "temperature": 0.7}
+        # 3. Dinamik Model Seçimi
+        current_model = MODEL_DEFAULT
+        # 'hızlı' veya 'flash' kelimeleri varsa hafif modele geç
+        if 'hızlı' in user_message_clean.lower() or 'flash' in user_message_clean.lower():
+            current_model = MODEL_LIGHTWEIGHT
+            logger.info(f"Kullanıcı talebi üzerine hafif model seçildi: {current_model}")
+            
+        # 4. Geçmişi ve Mesajı Hazırla
+        # Frontend'den gelen geçmişi kullan, sadece 'user' ve 'bot' rolleri tut
+        messages_for_api = [
+            {"role": msg["role"], "content": bleach.clean(msg["content"], tags=[], attributes={})} 
+            for msg in conversation_history 
+            if msg["role"] in ["user", "bot"]
+        ]
         
-        response = requests.post(API_URL, json=payload, headers=headers, timeout=30)  # Timeout artırıldı
-        response.raise_for_status()
-        bot_response = response.json()["choices"][0]["message"]["content"].strip()
+        # 5. Loglama (Analytics)
+        logger.info(f"[{current_model}] Yeni Chat: '{user_message_clean[:50]}...' (IP: {get_remote_address()})")
         
+        # 6. Asenkron API Çağrısı
+        bot_response = await async_chat_completion(messages=messages_for_api, model=current_model)
+        
+        # 7. Cevabı Döndür
         return jsonify({"response": bot_response})
+
+    except APIRequestError as e:
+        logger.error(f"API Çağrı Hatası (Tekrar Deneme Başarısız): {e}")
+        return jsonify({"response": f"**Üzgünüm**, API isteği sırasında bir sorun oluştu veya zaman aşımına uğradı. Lütfen daha sonra tekrar deneyin! 😥"}), 503
     except Exception as e:
-        logging.error(f"Hata: {str(e)}")
-        return jsonify({"response": f"Hata: {str(e)}"})
+        logger.error(f"Genel Hata: {str(e)}")
+        # Rate limit hatası (429) Limiter tarafından otomatik yakalanır.
+        return jsonify({"response": f"**Beklenmeyen bir hata** oluştu: {str(e)}. 😨"}), 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 10000))  # Render için dinamik PORT
-    app.run(debug=False, host='0.0.0.0', port=port)  # Debug False, production için
+    # Production Ortamı İçin Uyarı:
+    if not API_KEY or API_KEY == 'YOUR_API_KEY_HERE':
+        logger.warning("!!! DİKKAT: API_KEY ortam değişkeni ayarlanmadı. Uygulama çalışmayabilir. !!!")
+
+    # Port ayarı (Render, Heroku vb. için dinamik port desteği)
+    port = int(os.environ.get('PORT', 8080))
+    
+    # Gunicorn/Waitress (Üretim Tavsiyesi):
+    # Bu kodu üretimde çalıştırmak için 'gunicorn app:app -w 4 -b 0.0.0.0:8080' gibi bir komut kullanın.
+    # Flask'ın dahili sunucusu sadece geliştirme amaçlıdır.
+    print(f"\n🚀 HyperNova Flask Sunucusu {port} portunda çalışıyor (Geliştirme Modu).\n")
+    app.run(debug=False, host='0.0.0.0', port=port)
