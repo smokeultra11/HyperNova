@@ -22,7 +22,8 @@ API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Modeller
 MODEL_DEFAULT = "deepseek/deepseek-chat" # Varsayılan, daha yetenekli model
-MODEL_LIGHTWEIGHT = "gemini/gemini-2.5-flash" # "hızlı" anahtar kelimesi için daha hafif model
+# BURASI DÜZELTİLDİ: OpenRouter'daki doğru Google model kimliği kullanılıyor.
+MODEL_LIGHTWEIGHT = "google/gemini-2.5-flash" 
 
 # Sistem Prompt'u (eğlenceli, emoji ve kalın yazma talimatları eklendi)
 SYSTEM_PROMPT_CONTENT = (
@@ -82,6 +83,11 @@ async def async_chat_completion(messages: list, model: str, timeout: int = 60) -
         "temperature": 0.7,
         "timeout": timeout # Timeout parametresi OpenRouter'da desteklenmiyorsa da aiohttp için önemli
     }
+    
+    # API Anahtarı kontrolü
+    if not API_KEY or API_KEY == 'YOUR_API_KEY_HERE':
+        logger.error("API Anahtarı bulunamadı veya ayarlanmadı. Lütfen Render ortam değişkenlerini kontrol edin.")
+        raise APIRequestError("API Key Hatası: Lütfen OpenRouter API Key'inizi ayarlayın.")
     
     # aiohttp oturumu oluştur ve isteği gönder
     async with aiohttp.ClientSession(trust_env=True) as session:
@@ -631,6 +637,9 @@ async def chat():
 
     except APIRequestError as e:
         logger.error(f"API Çağrı Hatası (Tekrar Deneme Başarısız): {e}")
+        # API Key'in ayarlı olup olmama durumunu kontrol et
+        if "API Key Hatası" in str(e):
+             return jsonify({"response": f"**Çok Önemli Hata**: OpenRouter API Anahtarınız (API_KEY) Render'da doğru ayarlanmamış. Lütfen kontrol edin. 🔐"}), 500
         return jsonify({"response": f"**Üzgünüm**, API isteği sırasında bir sorun oluştu veya zaman aşımına uğradı. Lütfen daha sonra tekrar deneyin! 😥"}), 503
     except Exception as e:
         logger.error(f"Genel Hata: {str(e)}")
