@@ -1,4 +1,4 @@
-import os
+bu website yapay zeka kodunda yeni bir karakter ekle, adı "HyperNova Dengesiz" olsun ve saygılı falan olmak zorunda olmasın o kadar.: import os
 import logging
 import json
 import asyncio
@@ -739,4 +739,5 @@ def index():
             body.kaia-theme #persona-select {
                 border-color: var(--kaia-primary-color);
                 color: var(--kaia-text-color);
-                backgr
+                background-color: #ffffff;
+ 
