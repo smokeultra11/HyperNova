@@ -210,7 +210,7 @@ def chat():
         messages = [SYSTEM_PROMPT] + conversation
         payload = {"model": MODEL, "messages": messages, "max_tokens": 500, "temperature": 0.7}
         
-        response = requests.post(API_URL, json=payload, headers=headers, timeout=10)
+        response = requests.post(API_URL, json=payload, headers=headers, timeout=30)  # Timeout artırıldı
         response.raise_for_status()
         bot_response = response.json()["choices"][0]["message"]["content"].strip()
         
@@ -220,4 +220,5 @@ def chat():
         return jsonify({"response": f"Hata: {str(e)}"})
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 10000))  # Render için dinamik PORT
+    app.run(debug=False, host='0.0.0.0', port=port)  # Debug False, production için
