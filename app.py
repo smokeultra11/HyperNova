@@ -512,7 +512,7 @@ def index():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>HyperNova AI ✦ Kozmik Zeka</title>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
         <style>
             /* --- Dark/Light Mode Desteği --- */
             :root {
@@ -592,7 +592,7 @@ def index():
             body {  
                 background-color: var(--bg-color);  
                 color: var(--text-color);  
-                font-family: 'Inter', sans-serif;
+                font-family: 'Montserrat', sans-serif;
                 margin: 0;  
                 padding: 0;  
                 min-height: 100vh;  
@@ -607,16 +607,20 @@ def index():
                 overflow: hidden;
             }
 
-            /* Sidebar Stilleri (YENİ) */
+            /* Sidebar Stilleri (YENİ: Modern ve Animasyonlu) */
             .sidebar {
-                width: 250px;
-                background-color: var(--card-bg);
+                width: 280px;
+                background: linear-gradient(180deg, var(--card-bg) 0%, rgba(255,255,255,0.8) 100%);
                 border-right: 1px solid var(--border-color);
                 padding: 20px 0;
                 overflow-y: auto;
-                box-shadow: 2px 0 10px var(--shadow-color);
+                box-shadow: 4px 0 20px var(--shadow-color);
                 display: flex;
                 flex-direction: column;
+                transition: width 0.3s ease;
+            }
+            .sidebar:hover {
+                box-shadow: 4px 0 30px var(--shadow-color);
             }
             .sidebar h3 {
                 padding: 0 20px 15px;
@@ -625,71 +629,114 @@ def index():
                 font-size: 16px;
                 font-weight: 600;
                 border-bottom: 1px solid var(--border-color);
+                letter-spacing: 0.5px;
             }
-            .sidebar-top-buttons {
-                padding: 0 20px 10px;
+            .sidebar-toolbar {
+                padding: 0 16px 16px;
                 display: flex;
-                gap: 5px;
+                flex-direction: column;
+                gap: 8px;
                 border-bottom: 1px solid var(--border-color);
             }
-            .new-chat-button {
-                flex: 1;
-                padding: 8px;
-                background-color: var(--primary-color);
+            .new-chat-button, .save-chat-sidebar-button {
+                padding: 12px;
+                background: linear-gradient(135deg, var(--primary-color), #a78bfa);
                 color: white;
                 border: none;
-                border-radius: 6px;
+                border-radius: 12px;
                 cursor: pointer;
-                font-size: 12px;
+                font-size: 14px;
                 font-weight: 600;
+                font-family: 'Montserrat', sans-serif;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
             }
-            .new-chat-button:hover {
-                background-color: #a78bfa;
+            .new-chat-button:hover, .save-chat-sidebar-button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+            }
+            .save-chat-sidebar-button {
+                background: linear-gradient(135deg, #10b981, #059669);
+                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            }
+            .save-chat-sidebar-button:hover {
+                box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
             }
             .saved-chat {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                padding: 12px 20px;
+                padding: 16px 20px;
                 cursor: pointer;
-                border-bottom: 1px solid var(--border-color);
-                transition: background-color 0.2s;
+                border-bottom: 1px solid rgba(209, 213, 219, 0.2);
+                transition: all 0.3s ease;
                 font-size: 14px;
+                font-weight: 500;
+                font-family: 'Montserrat', sans-serif;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
+                position: relative;
+                animation: slideInLeft 0.4s ease-out forwards;
+            }
+            .saved-chat:nth-child(even) {
+                background: rgba(209, 213, 219, 0.1);
             }
             .saved-chat:hover {
-                background-color: var(--history-bg);
+                background: linear-gradient(90deg, var(--primary-color), #a78bfa);
+                color: white;
+                transform: translateX(5px);
+                box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
             }
             .saved-chat.active {
-                background-color: var(--primary-color);
+                background: linear-gradient(135deg, var(--primary-color), #a78bfa);
                 color: white;
+                box-shadow: inset 0 0 0 2px rgba(255,255,255,0.2);
             }
             .saved-chat-name {
                 flex: 1;
                 overflow: hidden;
                 text-overflow: ellipsis;
+                font-weight: 500;
             }
             .delete-chat-button {
                 background: none;
                 border: none;
-                color: #ef4444;
+                color: inherit;
                 cursor: pointer;
                 font-size: 16px;
-                padding: 0 5px;
-                border-radius: 4px;
-                transition: background-color 0.2s;
+                padding: 4px 8px;
+                border-radius: 50%;
+                transition: all 0.2s ease;
+                opacity: 0.7;
+            }
+            .saved-chat:hover .delete-chat-button {
+                opacity: 1;
+                background: rgba(255,255,255,0.2);
             }
             .delete-chat-button:hover {
-                background-color: rgba(239, 68, 68, 0.2);
+                background: rgba(239, 68, 68, 0.3);
+                color: #ef4444;
             }
             .save-limit {
-                padding: 10px 20px;
+                padding: 12px 20px;
                 text-align: center;
                 font-size: 12px;
                 color: var(--text-color);
-                opacity: 0.7;
+                opacity: 0.6;
+                font-style: italic;
+                font-family: 'Montserrat', sans-serif;
+            }
+
+            @keyframes slideInLeft {
+                from {
+                    opacity: 0;
+                    transform: translateX(-20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
             }
 
             /* Chat Container (Güncellendi: Sidebar ile uyumlu) */
@@ -730,6 +777,7 @@ def index():
                 font-weight: 600;
                 color: var(--text-color);
                 justify-content: space-between;
+                font-family: 'Montserrat', sans-serif;
             }
             #auth-status button, #logout-button {
                 background: var(--primary-color);
@@ -740,6 +788,7 @@ def index():
                 cursor: pointer;
                 font-weight: 600;
                 transition: background 0.2s;
+                font-family: 'Montserrat', sans-serif;
             }
             #auth-status button:hover, #logout-button:hover {
                 background: #a78bfa;
@@ -768,6 +817,7 @@ def index():
                 letter-spacing: -0.5px;
                 text-shadow: 0 0 5px rgba(139, 92, 246, 0.4); /* Mor ışıltı */
                 transition: color 0.4s ease, text-shadow 0.4s ease;
+                font-family: 'Montserrat', sans-serif;
             }
             #theme-toggle, #clear-button {
                 background: var(--history-bg);
@@ -807,6 +857,7 @@ def index():
                 background-repeat: no-repeat;
                 background-position: right 12px center;
                 padding-right: 30px;
+                font-family: 'Montserrat', sans-serif;
             }
             #persona-select:disabled {
                 cursor: not-allowed;
@@ -831,6 +882,7 @@ def index():
                 margin-bottom: 15px;  
                 scroll-behavior: smooth;
                 box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+                font-family: 'Montserrat', sans-serif;
             }
             #chat-history::-webkit-scrollbar {
                 width: 8px;
@@ -849,6 +901,7 @@ def index():
                 word-wrap: break-word;
                 animation: fadeIn 0.3s ease-out;
                 box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                font-family: 'Montserrat', sans-serif;
             }
             .user {  
                 background-color: var(--user-bubble);  
@@ -883,7 +936,7 @@ def index():
             }
 
 
-            /* Input Alanı (Güncellendi: Sohbet Kaydet Butonu Eklendi) */
+            /* Input Alanı (Güncellendi: Sohbet Kaydet Butonu Kaldırıldı) */
             .input-area {  
                 display: flex;  
                 gap: 10px;
@@ -899,6 +952,7 @@ def index():
                 font-size: 16px;
                 resize: none;
                 transition: border-color 0.3s, box-shadow 0.3s;
+                font-family: 'Montserrat', sans-serif;
             }
             #message-input:focus {
                 border-color: var(--primary-color);
@@ -918,6 +972,7 @@ def index():
                 align-items: center;
                 height: 48px;
                 font-size: 16px;
+                font-family: 'Montserrat', sans-serif;
             }
             .action-button:hover {  
                 background-color: #a78bfa;
@@ -932,16 +987,6 @@ def index():
             }
             #voice-button.listening {
                 background-color: #ef4444; /* Kırmızı */
-            }
-            /* YENİ: Sohbet Kaydet Butonu */
-            #save-chat-button {
-                background-color: #10b981;
-                height: 48px;
-                padding: 0 16px;
-                font-size: 14px;
-            }
-            #save-chat-button:hover {
-                background-color: #059669;
             }
 
             /* --- Reklam Alanı (Kaldırıldı, Sidebar için) --- */
@@ -968,6 +1013,7 @@ def index():
                 max-width: 400px;
                 box-shadow: 0 5px 15px rgba(0,0,0,0.5);
                 text-align: center;
+                font-family: 'Montserrat', sans-serif;
             }
             .modal-content h3 {
                 color: var(--primary-color);
@@ -983,6 +1029,7 @@ def index():
                 box-sizing: border-box;
                 background-color: var(--history-bg);
                 color: var(--text-color);
+                font-family: 'Montserrat', sans-serif;
             }
             .modal-content button {
                 width: 100%;
@@ -994,6 +1041,7 @@ def index():
                 border-radius: 6px;
                 cursor: pointer;
                 font-weight: bold;
+                font-family: 'Montserrat', sans-serif;
             }
             .modal-content button:hover {
                 background-color: #a78bfa;
@@ -1013,6 +1061,7 @@ def index():
                 padding: 12px 18px;
                 margin-right: auto;
                 border-radius: 20px;
+                font-family: 'Montserrat', sans-serif;
             }
             .spinner {
                 width: 10px;
@@ -1104,8 +1153,9 @@ def index():
         <div class="main-container">
             <!-- YENİ: Sidebar -->
             <div class="sidebar" id="sidebar">
-                <div class="sidebar-top-buttons">
+                <div class="sidebar-toolbar">
                     <button class="new-chat-button" onclick="newConversation()">Yeni Sohbet</button>
+                    <button id="save-chat-sidebar-button" class="save-chat-sidebar-button" onclick="saveCurrentConversation()">💾 Sohbeti Kaydet</button>
                 </div>
                 <h3>Kaydedilen Sohbetler</h3>
                 <div id="saved-chats-list"></div>
@@ -1142,7 +1192,6 @@ def index():
                     
                     <div class="input-area">
                         <input type="text" id="message-input" placeholder="Kozmik bir soru sor..." onkeypress="if(event.key==='Enter') sendMessage()">
-                        <button id="save-chat-button" class="action-button" onclick="saveCurrentConversation()">💾 Sohbeti Kaydet</button>
                         <button id="voice-button" class="action-button" onclick="toggleVoiceInput()" title="Sesli Giriş">🎙️</button>
                         <button id="send-button" class="action-button" onclick="sendMessage()">Gönder</button>
                     </div>
@@ -1156,6 +1205,7 @@ def index():
             let isVoiceListening = false;
             let savedConversations = []; // Kaydedilen sohbetler dizisi
             let currentLoadedChatId = null; // Aktif yüklenen sohbet ID'si
+            let isCurrentSaved = false; // Mevcut sohbet kaydedildi mi?
             
             const historyDiv = document.getElementById('chat-history');
             const input = document.getElementById('message-input');
@@ -1207,17 +1257,21 @@ def index():
                 return text;
             }
 
-            // --- YENİ: Yeni Sohbet Butonu ---
+            // --- YENİ: Yeni Sohbet Butonu (Kaydedilmişse Sorma) ---
             function newConversation() {
                 if (isThinking) {
                     alertMessage('Yeni sohbet için bekle, sistem meşgul. ⏳');
                     return;
                 }
-                if (confirm('Yeni sohbet başlatılacak. Mevcut sohbet kaydedilsin mi? (Vazgeçersen mevcut kalır)')) {
-                    saveCurrentConversation(); // Opsiyonel kaydet
+                let needsSave = !isCurrentSaved && conversation.length >= 2;
+                if (needsSave && confirm('Yeni sohbet başlatılacak. Mevcut sohbet kaydedilsin mi? (Vazgeçersen mevcut kalır)')) {
+                    saveCurrentConversation();
+                } else if (needsSave && !confirm('Kaydetmeden devam etmek istediğinize emin misiniz?')) {
+                    return; // Vazgeç
                 }
                 clearConversation(true); // Sessiz temizle
                 currentLoadedChatId = null; // Aktif sohbeti sıfırla
+                isCurrentSaved = false;
                 updateSavedChatsList(); // Aktif vurguyu kaldır
                 alertMessage('Yeni sohbet başlatıldı! ✨');
             }
@@ -1252,14 +1306,17 @@ def index():
                 savedConversations.push(chatData);
                 localStorage.setItem('hypernova_saved_conversations', JSON.stringify(savedConversations));
                 updateSavedChatsList();
+                isCurrentSaved = true;
+                currentLoadedChatId = chatId;
                 alertMessage(`Sohbet "${chatName}" kaydedildi. 💾`);
             }
 
             function updateSavedChatsList() {
                 savedChatsList.innerHTML = '';
-                savedConversations.forEach((chat) => {
+                savedConversations.forEach((chat, index) => {
                     const chatElement = document.createElement('div');
                     chatElement.className = 'saved-chat';
+                    chatElement.style.animationDelay = `${index * 0.1}s`;
                     if (currentLoadedChatId === chat.id) {
                         chatElement.classList.add('active');
                     }
@@ -1295,6 +1352,7 @@ def index():
 
                 // Aktif sohbeti vurgula
                 currentLoadedChatId = chatId;
+                isCurrentSaved = true;
                 updateSavedChatsList();
 
                 alertMessage(`"${chat.name}" sohbeti yüklendi.`);
@@ -1307,6 +1365,7 @@ def index():
                     localStorage.setItem('hypernova_saved_conversations', JSON.stringify(savedConversations));
                     if (currentLoadedChatId === chatId) {
                         currentLoadedChatId = null;
+                        isCurrentSaved = false;
                         newConversation(); // Aktifse yeni sohbet başlat
                     }
                     updateSavedChatsList();
@@ -1539,6 +1598,7 @@ def index():
                     historyDiv.innerHTML = '';
                     displayInitialGreeting();
                     currentLoadedChatId = null;
+                    isCurrentSaved = false;
                     updateSavedChatsList();
                     if (!isSilent) alertMessage('Sohbet geçmişi silindi. Sıfırdan başlıyoruz. ✅');
                 }
@@ -1568,6 +1628,7 @@ def index():
                 const greetingText = GREETINGS[currentPersona].text;
                 displayMessage('bot', greetingText, false);
                 conversation = [{role: 'bot', content: greetingText}];
+                isCurrentSaved = false;
             }
 
             // --- Mesaj Gönderme (GÜNCELLENDİ) ---
@@ -1623,6 +1684,7 @@ def index():
                         
                         // Konuşma geçmişine bot mesajını ekle
                         conversation.push({ role: 'assistant', content: botResponse });
+                        isCurrentSaved = false; // Yeni mesaj eklenince kaydedilmemiş say
                     }
 
                 } catch (error) {
