@@ -597,44 +597,71 @@ def index():
                 padding: 0;  
                 min-height: 100vh;  
                 transition: background-color 0.4s ease; /* Tema geçiş animasyonu */
-
-                /* YENİ: Sayfa düzenini Flexbox'a çevir */
-                display: flex;
-                justify-content: center;
-                align-items: center;
             }
 
-            /* YENİ: Reklam Konteyneri Stil Tanımları */
-            .ad-container {
-                width: 150px; /* Reklam genişliği */
-                height: 90vh; /* Ekran yüksekliğinin %90'ı */
-                max-height: 800px;
+            /* --- Ana Container (YENİ: Sidebar + Chat) --- */
+            .main-container {
+                display: flex;
+                height: 100vh;
+                max-width: 100vw;
+                overflow: hidden;
+            }
+
+            /* Sidebar Stilleri (YENİ) */
+            .sidebar {
+                width: 250px;
+                background-color: var(--card-bg);
+                border-right: 1px solid var(--border-color);
+                padding: 20px 0;
+                overflow-y: auto;
+                box-shadow: 2px 0 10px var(--shadow-color);
                 display: flex;
                 flex-direction: column;
-                gap: 10px;
-                padding: 10px 0;
-                align-self: center; /* Ortada hizalama */
             }
-
-            .ad-placeholder {
-                flex-grow: 1; /* Alandaki tüm boşluğu kapla */
-                background-color: var(--history-bg); /* Hafif bir arkaplan */
-                border: 1px dashed var(--border-color);
-                color: var(--text-color);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                text-align: center;
-                font-size: 14px;
+            .sidebar h3 {
+                padding: 0 20px 15px;
+                margin: 0;
+                color: var(--primary-color);
+                font-size: 16px;
                 font-weight: 600;
-                border-radius: 8px;
+                border-bottom: 1px solid var(--border-color);
+            }
+            .saved-chat {
+                padding: 12px 20px;
+                cursor: pointer;
+                border-bottom: 1px solid var(--border-color);
+                transition: background-color 0.2s;
+                font-size: 14px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .saved-chat:hover {
+                background-color: var(--history-bg);
+            }
+            .saved-chat.active {
+                background-color: var(--primary-color);
+                color: white;
+            }
+            .save-limit {
+                padding: 10px 20px;
+                text-align: center;
+                font-size: 12px;
+                color: var(--text-color);
                 opacity: 0.7;
             }
 
+            /* Chat Container (Güncellendi: Sidebar ile uyumlu) */
+            .chat-wrapper {
+                flex: 1;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 10px;
+            }
             .chat-container {  
-                /* width: 95%; */ /* Kaldırıldı, sayfa yapısı değişti */
+                width: 100%;
                 max-width: 600px;
-                width: 600px; /* Sabit genişlik belirle */
                 height: 90vh;
                 max-height: 800px;
                 background-color: var(--card-bg);  
@@ -645,10 +672,8 @@ def index():
                 flex-direction: column;  
                 border: 1px solid var(--border-color);
                 transition: all 0.4s ease;
-                margin: 10px; /* Reklamlarla arasına boşluk bırak */
+                margin: 0; /* Reklamlar kaldırıldı, sidebar için */
             }
-            
-            /* ... (Geri kalan CSS stilleri aynı kalır) ... */
             
             /* YENİ: Oturum Açma/Kayıt Alanı */
             #auth-status {
@@ -817,10 +842,11 @@ def index():
             }
 
 
-            /* Input Alanı */
+            /* Input Alanı (Güncellendi: Sohbet Kaydet Butonu Eklendi) */
             .input-area {  
                 display: flex;  
                 gap: 10px;
+                align-items: center;
             }
             #message-input {  
                 flex: 1;  
@@ -866,29 +892,18 @@ def index():
             #voice-button.listening {
                 background-color: #ef4444; /* Kırmızı */
             }
-
-            /* --- Reklam Alanı (YENİ) --- */
-            #ad-banner {
-                height: 40px;
-                background-color: rgba(255, 200, 0, 0.2); /* Hafif sarı/altın rengi */
-                color: #8a6c08;
-                text-align: center;
-                line-height: 40px;
-                border-radius: 8px;
-                font-size: 12px;
-                font-weight: 600;
-                margin-top: 5px;
-                cursor: pointer;
-                transition: background-color 0.3s;
-                /* REKLAM: Premium'a geçişi teşvik eden bir banner */
+            /* YENİ: Sohbet Kaydet Butonu */
+            #save-chat-button {
+                background-color: #10b981;
+                height: 48px;
+                padding: 0 16px;
+                font-size: 14px;
             }
-            #ad-banner:hover {
-                background-color: rgba(255, 200, 0, 0.3);
-            }
-            .ad-hidden {
-                display: none;
+            #save-chat-button:hover {
+                background-color: #059669;
             }
 
+            /* --- Reklam Alanı (Kaldırıldı, Sidebar için) --- */
 
             /* --- Login/Register Modal (YENİ) --- */
             .modal {
@@ -984,23 +999,30 @@ def index():
             }
 
             /* --- Responsive CSS (Mobil için) --- */
-            @media (max-width: 900px) { /* Reklamları gizlemek için breakpoint yükseltildi */
-                .ad-container {
-                    display: none; /* Yan reklamları mobil/dar ekranda gizle */
+            @media (max-width: 900px) {
+                .main-container {
+                    flex-direction: column;
+                }
+                .sidebar {
+                    width: 100%;
+                    height: auto;
+                    order: 2;
+                }
+                .chat-wrapper {
+                    order: 1;
+                }
+                .chat-container {
+                    height: 70vh;
                 }
             }
             @media (max-width: 640px) {
-                body {
-                    padding: 0;
-                    align-items: stretch;
-                }
                 .chat-container {
                     width: 100%;
-                    height: 100vh;
+                    height: 70vh;
                     padding: 15px;
                     border-radius: 0;
                     box-shadow: none;
-                    margin: 0; /* Reklamlar gizlendiği için margin kaldırıldı */
+                    margin: 0;
                 }
                 .title {
                     font-size: 22px;
@@ -1022,11 +1044,6 @@ def index():
                     font-size: 16px;
                     padding: 6px 10px;
                 }
-                #ad-banner {
-                    height: 30px;
-                    line-height: 30px;
-                    font-size: 11px;
-                }
             }
         </style>
     </head>
@@ -1043,53 +1060,49 @@ def index():
             </div>
         </div>
         
-        <div class="ad-container" id="left-ad-container">
-            <div class="ad-placeholder">
-                SOL REKLAM <br> 150x600
+        <div class="main-container">
+            <!-- YENİ: Sidebar -->
+            <div class="sidebar" id="sidebar">
+                <h3>Kaydedilen Sohbetler</h3>
+                <div id="saved-chats-list"></div>
+                <div class="save-limit">Maksimum 5 sohbet</div>
             </div>
-        </div>
 
-        <div class="chat-container">
-            <div class="header">
-                <div class="title">HyperNova AI 🪐✨</div>
-                <div class="header-buttons">
-                    <button id="clear-button" onclick="clearConversation()" title="Sohbeti Temizle ve Sıfırla">🧹</button>
-                    <button id="theme-toggle" onclick="toggleTheme()" title="Temayı Değiştir">☀️</button>
-                </div>
-            </div>
-            
-            <div id="auth-status">
-                <span id="user-info">Giriş Yapılmadı</span>
-                <div id="auth-buttons">
-                    <button onclick="showModal('login')">Giriş Yap</button>
-                    <button onclick="showModal('register')">Kayıt Ol</button>
-                    <button id="logout-button" style="display: none;" onclick="logout()">Çıkış Yap</button>
-                </div>
-            </div>
-            
-            <select id="persona-select" onchange="changePersona()">
-                <option value="hypernova">HyperNova (Standart) 🪐</option>
-                <option value="kaia" disabled>Kaia (Anime) (Premium) 🌠</option>
-                <option value="hypernova_dengesiz">HyperNova Dengesiz (Kaotik) 🌪️</option>
-            </select>
+            <div class="chat-wrapper">
+                <div class="chat-container">
+                    <div class="header">
+                        <div class="title">HyperNova AI 🪐✨</div>
+                        <div class="header-buttons">
+                            <button id="clear-button" onclick="clearConversation()" title="Sohbeti Temizle ve Sıfırla">🧹</button>
+                            <button id="theme-toggle" onclick="toggleTheme()" title="Temayı Değiştir">☀️</button>
+                        </div>
+                    </div>
+                    
+                    <div id="auth-status">
+                        <span id="user-info">Giriş Yapılmadı</span>
+                        <div id="auth-buttons">
+                            <button onclick="showModal('login')">Giriş Yap</button>
+                            <button onclick="showModal('register')">Kayıt Ol</button>
+                            <button id="logout-button" style="display: none;" onclick="logout()">Çıkış Yap</button>
+                        </div>
+                    </div>
+                    
+                    <select id="persona-select" onchange="changePersona()">
+                        <option value="hypernova">HyperNova (Standart) 🪐</option>
+                        <option value="kaia" disabled>Kaia (Anime) (Premium) 🌠</option>
+                        <option value="hypernova_dengesiz">HyperNova Dengesiz (Kaotik) 🌪️</option>
+                    </select>
 
-            <div id="chat-history">
-            </div>
-            
-            <div id="ad-banner" class="ad-visible" onclick="alert('Discord sunucumuzdan bilgi edinebilirsin! "discord.gg/J4h6zbHpYq"')">
-                ✨ Reklamsız Deneyim ve Özel Kaia Temaları için Premium'a Geç! ✨
-            </div>
-            
-            <div class="input-area">
-                <input type="text" id="message-input" placeholder="Kozmik bir soru sor..." onkeypress="if(event.key==='Enter') sendMessage()">
-                <button id="voice-button" class="action-button" onclick="toggleVoiceInput()" title="Sesli Giriş">🎙️</button>
-                <button id="send-button" class="action-button" onclick="sendMessage()">Gönder</button>
-            </div>
-        </div>
-        
-        <div class="ad-container" id="right-ad-container">
-            <div class="ad-placeholder">
-                SAĞ REKLAM <br> 150x600
+                    <div id="chat-history">
+                    </div>
+                    
+                    <div class="input-area">
+                        <input type="text" id="message-input" placeholder="Kozmik bir soru sor..." onkeypress="if(event.key==='Enter') sendMessage()">
+                        <button id="voice-button" class="action-button" onclick="toggleVoiceInput()" title="Sesli Giriş">🎙️</button>
+                        <button id="save-chat-button" class="action-button" onclick="saveCurrentConversation()">💾 Sohbeti Kaydet</button>
+                        <button id="send-button" class="action-button" onclick="sendMessage()">Gönder</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1097,6 +1110,7 @@ def index():
             let conversation = [];
             let isThinking = false;
             let isVoiceListening = false;
+            let savedConversations = []; // Kaydedilen sohbetler dizisi
             
             const historyDiv = document.getElementById('chat-history');
             const input = document.getElementById('message-input');
@@ -1105,8 +1119,9 @@ def index():
             const themeToggle = document.getElementById('theme-toggle');
             const clearButton = document.getElementById('clear-button');
             const personaSelect = document.getElementById('persona-select');
-            const adBanner = document.getElementById('ad-banner');
             const kaiaOption = personaSelect.querySelector('option[value="kaia"]');
+            const sidebar = document.getElementById('sidebar');
+            const savedChatsList = document.getElementById('saved-chats-list');
 
             // --- YENİ AUTH DEĞİŞKENLERİ ---
             let isLoggedIn = false;
@@ -1145,6 +1160,86 @@ def index():
                 // [metin](url) -> <a href="url">metin</a>
                 text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
                 return text;
+            }
+
+            // --- YENİ: Sohbet Kaydetme Fonksiyonları ---
+            function saveCurrentConversation() {
+                if (conversation.length < 2) { // En az bir mesaj çifti olmalı
+                    alertMessage('Kaydedilecek sohbet yok. En az bir mesaj gönderin.');
+                    return;
+                }
+
+                const chatName = prompt('Sohbet adı girin:');
+                if (!chatName || chatName.trim() === '') {
+                    alertMessage('Sohbet adı zorunlu.');
+                    return;
+                }
+
+                // Maksimum 5 sohbet kontrolü
+                if (savedConversations.length >= 5) {
+                    alertMessage('Maksimum 5 sohbet kaydedilebilir. Eski bir sohbeti silin.');
+                    return;
+                }
+
+                const chatId = Date.now().toString();
+                const chatData = {
+                    id: chatId,
+                    name: chatName.trim(),
+                    messages: [...conversation],
+                    last_updated: Date.now()
+                };
+
+                savedConversations.push(chatData);
+                localStorage.setItem('hypernova_saved_conversations', JSON.stringify(savedConversations));
+                updateSavedChatsList();
+                alertMessage(`Sohbet "${chatName}" kaydedildi. 💾`);
+            }
+
+            function updateSavedChatsList() {
+                savedChatsList.innerHTML = '';
+                savedConversations.forEach((chat, index) => {
+                    const chatElement = document.createElement('div');
+                    chatElement.className = 'saved-chat';
+                    chatElement.textContent = chat.name;
+                    chatElement.onclick = () => loadSavedConversation(chat.id);
+                    savedChatsList.appendChild(chatElement);
+                });
+            }
+
+            function loadSavedConversation(chatId) {
+                const chat = savedConversations.find(c => c.id === chatId);
+                if (!chat) return;
+
+                // 20 gün kuralı kontrolü
+                const now = Date.now();
+                const TWENTY_DAYS_MS = 20 * 24 * 60 * 60 * 1000;
+                if (now - chat.last_updated > TWENTY_DAYS_MS) {
+                    alertMessage('Bu sohbet 20 gün önce kaydedilmiş, otomatik siliniyor.');
+                    deleteSavedConversation(chatId);
+                    return;
+                }
+
+                conversation = chat.messages;
+                historyDiv.innerHTML = '';
+                conversation.forEach(msg => {
+                    if (msg.role !== 'system') {
+                        displayMessage(msg.role, msg.content, false);
+                    }
+                });
+                scrollToBottom();
+
+                // Aktif sohbeti vurgula
+                document.querySelectorAll('.saved-chat').forEach(el => el.classList.remove('active'));
+                const activeEl = Array.from(savedChatsList.children).find(el => el.textContent === chat.name);
+                if (activeEl) activeEl.classList.add('active');
+
+                alertMessage(`"${chat.name}" sohbeti yüklendi.`);
+            }
+
+            function deleteSavedConversation(chatId) {
+                savedConversations = savedConversations.filter(c => c.id !== chatId);
+                localStorage.setItem('hypernova_saved_conversations', JSON.stringify(savedConversations));
+                updateSavedChatsList();
             }
 
             // --- AUTH FONKSİYONLARI (YENİ) ---
@@ -1265,13 +1360,9 @@ def index():
                             premiumInfo = `<span class="premium-tag" title="Bitiş: ${data.premium_until}">⭐ PREMIUM</span>`;
                             kaiaOption.removeAttribute('disabled');
                             kaiaOption.textContent = 'Kaia (Anime) 🌠';
-                            adBanner.classList.add('ad-hidden');
-                            document.querySelectorAll('.ad-placeholder').forEach(el => el.textContent = 'Reklamsız Bölge ✨');
                         } else {
                             kaiaOption.setAttribute('disabled', 'disabled');
                             kaiaOption.textContent = 'Kaia (Anime) 🌠 (Premium)';
-                            adBanner.classList.remove('ad-hidden');
-                            document.querySelectorAll('.ad-placeholder').forEach(el => el.textContent = 'REKLAM 150x600');
                         }
                         
                         userInfoSpan.innerHTML = `Hoş geldin, <strong>${currentUsername}</strong>${premiumInfo}`;
@@ -1286,8 +1377,6 @@ def index():
                         isPremium = false;
                         kaiaOption.setAttribute('disabled', 'disabled');
                         kaiaOption.textContent = 'Kaia (Anime) (Premium) 🌠';
-                        adBanner.classList.remove('ad-hidden');
-                        document.querySelectorAll('.ad-placeholder').forEach(el => el.textContent = 'REKLAM 150x600');
                     }
                     
                 } catch (error) {
@@ -1366,7 +1455,7 @@ def index():
             }
 
 
-            // --- Konuşmayı Temizle (Aynı Kaldı) ---
+            // --- Konuşmayı Temizle (Güncellendi: Kaydedilen sohbetleri etkilemez) ---
             function clearConversation(isSilent = false) {
                 if (isThinking) {
                     if (!isSilent) alertMessage('Sıfırlama işlemi için bekle, sistem meşgul. ⏳');
@@ -1375,89 +1464,36 @@ def index():
                 
                 if (isSilent || confirm('Konuşma geçmişi silinecek. Emin misin? 🤔')) {
                     conversation = [];
-                    localStorage.removeItem('hypernova_chat_history_' + currentPersona); // Persona'ya özel geçmişi sil
                     historyDiv.innerHTML = '';
                     displayInitialGreeting();
                     if (!isSilent) alertMessage('Sohbet geçmişi silindi. Sıfırdan başlıyoruz. ✅');
                 }
             }
 
-            // --- Local Storage ve History Yönetimi (GÜNCELLENDİ: Maks 5 sohbet ve 20 gün kuralı) ---
-            function saveHistory() {
+            // --- Local Storage ve History Yönetimi (Güncellendi: Manuel Kaydetme) ---
+            function loadSavedConversations() {
                 try {
-                    // Maksimum 5 sohbet: Her sohbet bir user-bot çifti olarak sayılır
-                    // Conversation'da user ve assistant mesajlarını filtrele, son 5 çifti al (yaklaşık 10 mesaj)
-                    const exchanges = [];
-                    for (let i = 0; i < conversation.length; i += 2) {
-                        if (conversation[i] && conversation[i+1] && 
-                            conversation[i].role === 'user' && conversation[i+1].role === 'assistant') {
-                            exchanges.push(conversation[i]);
-                            exchanges.push(conversation[i+1]);
-                        } else if (conversation[i] && conversation[i].role === 'user') {
-                            exchanges.push(conversation[i]); // Tamamlanmamış sohbeti de ekle
-                        }
+                    const saved = localStorage.getItem('hypernova_saved_conversations');
+                    if (saved) {
+                        savedConversations = JSON.parse(saved);
+                        // 20 gün kuralı: Eski sohbetleri filtrele
+                        const now = Date.now();
+                        const TWENTY_DAYS_MS = 20 * 24 * 60 * 60 * 1000;
+                        savedConversations = savedConversations.filter(chat => now - chat.last_updated <= TWENTY_DAYS_MS);
+                        localStorage.setItem('hypernova_saved_conversations', JSON.stringify(savedConversations));
                     }
-                    const limitedHistory = exchanges.slice(0, 10); // Maks 5 çift = 10 mesaj
-                    
-                    const historyData = {
-                        messages: limitedHistory,
-                        last_updated: Date.now()
-                    };
-                    localStorage.setItem('hypernova_chat_history_' + currentPersona, JSON.stringify(historyData));
+                    updateSavedChatsList();
                 } catch (e) {
-                    console.warn("Local storage kaydı başarısız oldu.", e);
+                    console.error("Kaydedilen sohbetler yüklenirken hata:", e);
+                    savedConversations = [];
+                    updateSavedChatsList();
                 }
-            }
-
-            function loadHistory() {
-                checkAuthStatus().then(() => { // Önce kullanıcı ve premium durumu yüklensin
-                    updateUIForPersona(); // UI'ı doğru persona/premium durumuna göre ayarla
-
-                    try {
-                        const savedData = localStorage.getItem('hypernova_chat_history_' + currentPersona);
-                        historyDiv.innerHTML = '';
-                        
-                        if (savedData) {
-                            const historyData = JSON.parse(savedData);
-                            const now = Date.now();
-                            const TWENTY_DAYS_MS = 20 * 24 * 60 * 60 * 1000;
-                            
-                            // 20 gün kuralı: Eğer güncellenmemişse sil
-                            if (now - historyData.last_updated > TWENTY_DAYS_MS) {
-                                localStorage.removeItem('hypernova_chat_history_' + currentPersona);
-                                alertMessage('Eski sohbet geçmişi otomatik olarak silindi (20 gün kuralı). Yeni sohbet başlatılıyor. 🗑️');
-                                displayInitialGreeting();
-                                return;
-                            }
-                            
-                            const history = historyData.messages;
-                            history.forEach(msg => {
-                                if (msg.role !== 'system') {
-                                    displayMessage(msg.role, msg.content, false);
-                                }
-                            });
-                            conversation = history;
-                            
-                            // Eğer geçmişte bot mesajı yoksa ilk karşılamayı göster
-                            if (conversation.length === 0 || conversation.every(msg => msg.role === 'user')) {
-                                displayInitialGreeting();
-                            }
-                            scrollToBottom();
-                        } else {
-                            displayInitialGreeting();
-                        }
-                    } catch (e) {
-                        console.error("Local storage yüklenirken hata:", e);
-                        displayInitialGreeting();
-                    }
-                });
             }
             
             function displayInitialGreeting() {
                 const greetingText = GREETINGS[currentPersona].text;
                 displayMessage('bot', greetingText, false);
                 conversation = [{role: 'bot', content: greetingText}];
-                saveHistory();
             }
 
             // --- Mesaj Gönderme (GÜNCELLENDİ) ---
@@ -1475,7 +1511,6 @@ def index():
                 try {
                     // Konuşma geçmişine kullanıcı mesajını ekle
                     conversation.push({ role: 'user', content: text });
-                    saveHistory();
 
                     const apiMessages = conversation.map(msg => ({ role: msg.role, content: msg.content }));
                     
@@ -1512,9 +1547,8 @@ def index():
                         const botResponse = data.response;
                         displayMessage('bot', botResponse, true);
                         
-                        // Konuşma geçmişine bot mesajını ekle ve kaydet
+                        // Konuşma geçmişine bot mesajını ekle
                         conversation.push({ role: 'assistant', content: botResponse });
-                        saveHistory();
                     }
 
                 } catch (error) {
@@ -1524,11 +1558,6 @@ def index():
                 } finally {
                     isThinking = false;
                     setControlsDisabled(false);
-                    // Hatanın ardından gönderilen user mesajını history'den temizle (kullanıcı tekrar denesin diye)
-                    // if (conversation.length > 0 && conversation[conversation.length - 1].role === 'user') {
-                    //     conversation.pop();
-                    //     saveHistory();
-                    // }
                 }
             }
 
@@ -1611,7 +1640,10 @@ def index():
 
             // Sayfa Yüklendiğinde
             document.addEventListener('DOMContentLoaded', () => {
-                loadHistory(); // Premium kontrolü burada tetiklenir
+                loadSavedConversations(); // Kaydedilen sohbetleri yükle
+                checkAuthStatus(); // Premium ve auth kontrolü
+                updateUIForPersona(); // Persona UI güncelle
+                displayInitialGreeting(); // İlk mesajı göster
             });
             
             // Enter tuşuna basınca mesaj gönder
