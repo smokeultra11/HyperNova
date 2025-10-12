@@ -4,8 +4,11 @@ import json
 import asyncio
 import aiohttp
 import bleach
+import uuid
+from datetime import datetime, timedelta # Tarih ve zaman işlemleri için önemli
+from typing import Optional, Dict
 
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template_string, make_response, redirect, url_for
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_cors import CORS
@@ -22,7 +25,22 @@ API_URL = "https://openrouter.ai/api/v1/chat/completions"
 # Modeller
 MODEL_DEFAULT = "google/gemini-2.5-flash" # Varsayılan: Hızlı model
 
-# --- KARAKTER PROMPTLARI ---
+# --- KULLANICI & PREMIUM YÖNETİMİ (IN-MEMORY DEMO) ---
+# Gerçek uygulamada burası kalıcı bir veritabanı (SQLAlchemy, vb.) olur.
+# User: {
+#   'username': str, 
+#   'password': str (demo için düz metin), 
+#   'premium_until': datetime,
+#   'session_id': str (varsa)
+# }
+USER_DB: Dict[str, Dict] = {} 
+SESSION_MAP: Dict[str, str] = {} # session_id: username
+
+# Geliştirici kullanıcı adı (Admin paneline erişim için)
+DEVELOPER_USERNAME = "nyxcore"
+DEVELOPER_PASSWORD = "supersecretpassword" # Gerçekte hashlenmeli!
+
+# --- KARAKTER PROMPTLARI (Aynı Kaldı) ---
 
 # 1. STANDART KARAKTER: HyperNova (Ultra zeki, kozmik)
 HYPERNOVA_SYSTEM_PROMPT_CONTENT = (
@@ -70,6 +88,25 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["60 per hour", "15 per minute"]
 )
+
+# --- Yardımcı Fonksiyonlar (Authentication/Authorization) ---
+
+def get_current_user() -> Optional[str]:
+    """Cookie'den session_id'yi alır ve kullanıcı adını döndürür."""
+    session_id = request.cookies.get('session_id')
+    return SESSION_MAP.get(session_id)
+
+def is_user_premium(username: str) -> bool:
+    """Kullanıcının premium üyeliğinin aktif olup olmadığını kontrol eder."""
+    user_data = USER_DB.get(username)
+    if not user_data:
+        return False
+    # Premium bitiş tarihi şimdiki zamandan büyükse True döndür
+    return user_data['premium_until'] > datetime.now()
+
+def check_admin_auth(username: str, password: str) -> bool:
+    """Geliştirici (Admin) girişi için kontrol."""
+    return username == DEVELOPER_USERNAME and password == DEVELOPER_PASSWORD
 
 # --- Asenkron API Çağrısı Fonksiyonu (Retry Mekanizması ile) ---
 
@@ -134,17 +171,54 @@ async def async_chat_completion(messages: list, model: str, persona: str, timeou
             raise APIRequestError(f"Beklenmeyen Hata: {e}")
 
 
-# --- Flask Rotaları ---
+# --- Flask Rotaları (Authentication/Chat/Admin) ---
+
+@app.route('/is_premium', methods=['GET'])
+def is_premium_endpoint():
+    """Kullanıcının premium durumunu kontrol eden API."""
+    username = get_current_user()
+    is_premium = False
+    premium_until_str = None
+    
+    if username:
+        is_premium = is_user_premium(username)
+        user_data = USER_DB.get(username)
+        if is_premium:
+             premium_until_str = user_data['premium_until'].strftime('%Y-%m-%d %H:%M:%S')
+             
+    return jsonify({
+        "logged_in": bool(username),
+        "username": username,
+        "is_premium": is_premium,
+        "premium_until": premium_until_str
+    })
+
 
 @app.route('/chat', methods=['POST'])
 @limiter.limit("15 per minute")
 async def chat_endpoint():
+    username = get_current_user()
+    if not username:
+        # Premium olmayan kullanıcılar için bile chate izin verelim, 
+        # sadece Kaia modunu kısıtlayalım (HyperNova ücretsiz kalsın)
+        # return jsonify({"error": "Giriş yapmalısınız."}), 401 
+        pass 
+        
     try:
         data = request.get_json()
         messages = data.get('messages', [])
-        # YENİ: Hangi persona'nın seçildiğini al
-        persona = data.get('persona', DEFAULT_PERSONA) 
-
+        persona = data.get('persona', DEFAULT_PERSONA)
+        
+        # --- PREMIUM KONTROLÜ (KAIA MODU İÇİN) ---
+        if persona == "kaia":
+            if not username or not is_user_premium(username):
+                # Premium değilse veya giriş yapmamışsa Kaia modunu engelle
+                return jsonify({
+                    "error": "Kaia modu **Premium** aboneler için ayrılmıştır. 💖",
+                    "force_persona": DEFAULT_PERSONA # Frontend'e HyperNova'ya geçmesini söyle
+                }), 403
+            logger.info(f"Premium kullanıcı '{username}' Kaia modunu kullanıyor.")
+        
         # API çağrısı
         bot_response = await async_chat_completion(messages, MODEL_DEFAULT, persona)
         
@@ -157,6 +231,260 @@ async def chat_endpoint():
     except Exception as e:
         logger.error(f"Sunucu Hatası: {e}")
         return jsonify({"error": "Dahili Sunucu Hatası: " + str(e)}), 500
+
+
+# --- Kullanıcı Yönetim Rotaları ---
+
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not username or not password:
+        return jsonify({"error": "Kullanıcı adı ve şifre zorunludur."}), 400
+        
+    if username in USER_DB:
+        return jsonify({"error": "Bu kullanıcı adı zaten alınmış."}), 409
+        
+    # Başlangıçta premium değil (Premium_until: şimdi)
+    USER_DB[username] = {
+        'username': username,
+        'password': password, # Gerçekte: hashlenmiş şifre
+        'premium_until': datetime.now() 
+    }
+    logger.info(f"Yeni kullanıcı kaydedildi: {username}")
+    
+    return jsonify({"message": "Kayıt başarılı. Şimdi giriş yapabilirsiniz."}), 201
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    
+    user_data = USER_DB.get(username)
+    
+    if not user_data or user_data['password'] != password:
+        return jsonify({"error": "Geçersiz kullanıcı adı veya şifre."}), 401
+        
+    # Başarılı giriş: Yeni session ID oluştur
+    session_id = str(uuid.uuid4())
+    SESSION_MAP[session_id] = username
+    
+    # Premium durumunu kontrol et
+    is_premium = is_user_premium(username)
+
+    logger.info(f"Kullanıcı giriş yaptı: {username} (Premium: {is_premium})")
+    
+    # Cookie ile session ID'yi ayarla
+    response = make_response(jsonify({
+        "message": "Giriş başarılı.", 
+        "username": username,
+        "is_premium": is_premium
+    }))
+    # Secure, HttpOnly ve SameSite=Lax (ya da Strict) gerçek bir uygulamada ayarlanmalı
+    response.set_cookie('session_id', session_id, httponly=True, max_age=timedelta(days=7)) 
+    return response
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    session_id = request.cookies.get('session_id')
+    username = SESSION_MAP.pop(session_id, None)
+    
+    if username:
+        logger.info(f"Kullanıcı çıkış yaptı: {username}")
+        
+    response = make_response(jsonify({"message": "Çıkış başarılı."}))
+    response.set_cookie('session_id', '', expires=0) # Cookie'yi sil
+    return response
+
+# --- GELİŞTİRİCİ / ADMIN PANEL ROTASI (YENİ) ---
+
+@app.route('/admin', methods=['GET', 'POST'])
+def admin_panel():
+    # Admin girişini kontrol et (Cookie kullanmadan, basit bir form ile)
+    is_authenticated = False
+    
+    if request.method == 'POST':
+        form_type = request.form.get('form_type')
+        
+        if form_type == 'login':
+            admin_user = request.form.get('admin_username')
+            admin_pass = request.form.get('admin_password')
+            if check_admin_auth(admin_user, admin_pass):
+                # Başarılı giriş, bir session cookie'si oluşturabiliriz, 
+                # ancak demo için sadece bu isteğin devamında yetki verelim.
+                is_authenticated = True
+                return redirect(url_for('admin_panel', auth='success')) # URL'e basit bir flag ekleyelim
+            else:
+                return admin_login_template("Geçersiz Yönetici Kimlik Bilgisi."), 401
+
+        elif form_type == 'premium_grant':
+            # Bu işlem için admin'in giriş yapması gerekir, ancak demo'da 
+            # yukarıdaki form girişini atlayıp direkt işlem yapmaya çalışacağız
+            # VEYA basit bir kontrol daha ekleriz:
+            
+            # Geliştirici kimlik bilgileri tekrar kontrol edilir
+            admin_user = request.form.get('auth_username')
+            admin_pass = request.form.get('auth_password')
+            
+            if not check_admin_auth(admin_user, admin_pass):
+                return admin_login_template("Yetkisiz İşlem Denemesi. Lütfen Yönetici olarak giriş yapın."), 403
+            
+            is_authenticated = True
+            
+            target_username = request.form.get('target_username')
+            
+            if target_username not in USER_DB:
+                return admin_panel_template(f"Hata: Kullanıcı **{target_username}** bulunamadı."), 404
+            
+            # Premium Süresini Ayarla (Şimdiden 30 gün sonrası)
+            new_expiry_date = datetime.now() + timedelta(days=30)
+            USER_DB[target_username]['premium_until'] = new_expiry_date
+            
+            logger.info(f"Admin: {target_username} kullanıcısının premiumluğu {new_expiry_date.strftime('%Y-%m-%d')} tarihine kadar uzatıldı.")
+            
+            # Başarı mesajı ile admin panelini yeniden yükle
+            message = f"Başarılı! **{target_username}** kullanıcısının premium üyeliği **{new_expiry_date.strftime('%Y-%m-%d %H:%M:%S')}** tarihine kadar aktifleştirildi (30 gün)."
+            return admin_panel_template(message, is_authenticated)
+        
+    
+    # GET isteği veya ilk yükleme
+    if request.args.get('auth') == 'success' or request.args.get('auth_user') == DEVELOPER_USERNAME:
+        is_authenticated = True # Basit demo yetkilendirmesi
+        
+    if is_authenticated:
+        return admin_panel_template("", is_authenticated)
+    else:
+        return admin_login_template()
+
+
+def admin_login_template(error_message: str = ""):
+    """Admin Giriş Formu HTML'i."""
+    return render_template_string(f"""
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head>
+        <title>Yönetici Girişi</title>
+        <style>
+            body {{ font-family: sans-serif; background-color: #f0f4f8; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
+            .login-box {{ background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 350px; text-align: center; }}
+            h2 {{ color: #4f46e5; margin-bottom: 30px; }}
+            input[type="text"], input[type="password"] {{ width: 100%; padding: 12px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }}
+            button {{ width: 100%; padding: 12px; background-color: #4f46e5; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; }}
+            button:hover {{ background-color: #4338ca; }}
+            .error {{ color: #ef4444; margin-bottom: 15px; font-weight: bold; }}
+        </style>
+    </head>
+    <body>
+        <div class="login-box">
+            <h2>HyperNova Admin Girişi</h2>
+            {f'<div class="error">{error_message}</div>' if error_message else ''}
+            <form method="POST" action="/admin">
+                <input type="hidden" name="form_type" value="login">
+                <input type="text" name="admin_username" placeholder="Yönetici Kullanıcı Adı" required>
+                <input type="password" name="admin_password" placeholder="Yönetici Şifresi" required>
+                <button type="submit">Giriş Yap</button>
+            </form>
+        </div>
+    </body>
+    </html>
+    """)
+
+def admin_panel_template(message: str = "", is_authenticated: bool = False):
+    """Admin Paneli HTML'i (Premium Aktifleştirme Formu ve Kullanıcı Listesi)."""
+    
+    # Eğer yetkilendirme yoksa, giriş sayfasına yönlendir
+    if not is_authenticated:
+        return redirect(url_for('admin_panel'))
+        
+    user_list_html = ""
+    # Kullanıcı verilerini premium durumuna göre hazırla
+    sorted_users = sorted(USER_DB.items(), key=lambda item: item[1]['premium_until'], reverse=True)
+    
+    for username, data in sorted_users:
+        is_premium_active = is_user_premium(username)
+        status_text = "AKTİF" if is_premium_active else "PASİF"
+        status_color = "color: green;" if is_premium_active else "color: red;"
+        expiry_date = data['premium_until'].strftime('%Y-%m-%d %H:%M:%S')
+        
+        user_list_html += f"""
+        <tr>
+            <td>{username}</td>
+            <td><span style="{status_color}">{status_text}</span></td>
+            <td>{expiry_date}</td>
+        </tr>
+        """
+
+    # Admin panelinin HTML'i
+    return render_template_string(f"""
+    <!DOCTYPE html>
+    <html lang="tr">
+    <head>
+        <title>HyperNova Yönetici Paneli</title>
+        <style>
+            body {{ font-family: sans-serif; background-color: #1f2937; color: #f9fafb; padding: 20px; }}
+            .container {{ max-width: 1000px; margin: auto; background: #374151; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }}
+            h1 {{ color: #8b5cf6; border-bottom: 2px solid #8b5cf6; padding-bottom: 10px; margin-bottom: 20px; }}
+            .message {{ background: #10b981; color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; }}
+            
+            /* Form Stili */
+            form {{ background: #4b5563; padding: 20px; border-radius: 8px; margin-bottom: 30px; }}
+            label {{ display: block; margin-bottom: 8px; font-weight: bold; color: #d1d5db; }}
+            input[type="text"] {{ width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #6b7280; border-radius: 6px; box-sizing: border-box; background: #374151; color: #f9fafb; }}
+            button {{ padding: 10px 20px; background-color: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }}
+            button:hover {{ background-color: #a78bfa; }}
+            
+            /* Tablo Stili */
+            h2 {{ color: #facc15; margin-top: 40px; border-bottom: 1px solid #6b7280; padding-bottom: 10px; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 15px; }}
+            th, td {{ padding: 12px 15px; text-align: left; border-bottom: 1px solid #4b5563; }}
+            th {{ background-color: #4b5563; color: #facc15; font-weight: bold; }}
+            tr:hover {{ background-color: #525a66; }}
+            td:nth-child(2) {{ font-weight: bold; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1> Yönetici Paneli - Premium Aktivasyon </h1>
+            
+            {'<div class="message">' + message + '</div>' if message else ''}
+            
+            <h2>30 Günlük Premium Aktifleştirme</h2>
+            <form method="POST" action="/admin">
+                <input type="hidden" name="form_type" value="premium_grant">
+                
+                <p style="color: #ef4444; font-weight: bold;">UYARI: Bu demo, kalıcı bir oturum tutmaz. Her işlemde yönetici kimlik bilgisi gereklidir!</p>
+                <label for="auth_username">Yönetici Kullanıcı Adı (Tekrar Giriş):</label>
+                <input type="text" id="auth_username" name="auth_username" value="{DEVELOPER_USERNAME}" required>
+                
+                <label for="auth_password">Yönetici Şifresi (Tekrar Giriş):</label>
+                <input type="password" id="auth_password" name="auth_password" required>
+                
+                <label for="target_username">Premium Aktifleştirilecek Kullanıcı Adı:</label>
+                <input type="text" id="target_username" name="target_username" placeholder="Kullanıcı Adı Girin" required>
+                
+                <button type="submit">Premium Aktifleştir (30 Gün)</button>
+            </form>
+            
+            <h2>Sistemdeki Tüm Kullanıcılar ({len(USER_DB)})</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Kullanıcı Adı</th>
+                        <th>Premium Durumu</th>
+                        <th>Bitiş Tarihi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {user_list_html if USER_DB else '<tr><td colspan="3">Sistemde kayıtlı kullanıcı yok.</td></tr>'}
+                </tbody>
+            </table>
+        </div>
+    </body>
+    </html>
+    """)
 
 
 @app.route('/', methods=['GET'])
@@ -305,14 +633,53 @@ def index():
                 transition: all 0.4s ease;
                 margin: 10px; /* Reklamlarla arasına boşluk bırak */
             }
+            
             /* ... (Geri kalan CSS stilleri aynı kalır) ... */
             
-            /* ... (Kaldırılan CSS kodları yerine sadece farklı olanları tutalım) ... */
+            /* YENİ: Oturum Açma/Kayıt Alanı */
+            #auth-status {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-top: 5px;
+                margin-bottom: 10px;
+                padding: 5px 10px;
+                background-color: var(--history-bg);
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 600;
+                color: var(--text-color);
+                justify-content: space-between;
+            }
+            #auth-status button, #logout-button {
+                background: var(--primary-color);
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+                transition: background 0.2s;
+            }
+            #auth-status button:hover, #logout-button:hover {
+                background: #a78bfa;
+            }
+            .premium-tag {
+                background-color: #facc15;
+                color: #854d0e;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-size: 11px;
+                font-weight: 700;
+                margin-left: 5px;
+                line-height: 1;
+            }
+
             .header {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                margin-bottom: 10px; /* Kişi seçimi için boşluk bırakıldı */
+                margin-bottom: 5px; /* Oturum durumu için boşluk bırakıldı */
             }
             .title {  
                 font-size: 26px;  
@@ -360,6 +727,11 @@ def index():
                 background-repeat: no-repeat;
                 background-position: right 12px center;
                 padding-right: 30px;
+            }
+            #persona-select:disabled {
+                cursor: not-allowed;
+                opacity: 0.7;
+                border-style: dashed;
             }
             /* Kaia Modu için Seçim Kutusu Rengi */
             body.kaia-theme #persona-select {
@@ -495,12 +867,71 @@ def index():
                 cursor: pointer;
                 transition: background-color 0.3s;
                 /* REKLAM: Premium'a geçişi teşvik eden bir banner */
-                content: "✨ Reklamsız Deneyim ve Özel Kaia Temaları için Premium'a Geç! ✨";
             }
             #ad-banner:hover {
                 background-color: rgba(255, 200, 0, 0.3);
             }
+            .ad-hidden {
+                display: none;
+            }
 
+
+            /* --- Login/Register Modal (YENİ) --- */
+            .modal {
+                position: fixed;
+                z-index: 1000;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                overflow: auto;
+                background-color: rgba(0,0,0,0.4);
+                display: none;
+                justify-content: center;
+                align-items: center;
+            }
+            .modal-content {
+                background-color: var(--card-bg);
+                padding: 30px;
+                border-radius: 10px;
+                width: 90%;
+                max-width: 400px;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+                text-align: center;
+            }
+            .modal-content h3 {
+                color: var(--primary-color);
+                margin-top: 0;
+                margin-bottom: 20px;
+            }
+            .modal-content input {
+                width: 100%;
+                padding: 10px;
+                margin-bottom: 15px;
+                border: 1px solid var(--border-color);
+                border-radius: 6px;
+                box-sizing: border-box;
+                background-color: var(--history-bg);
+                color: var(--text-color);
+            }
+            .modal-content button {
+                width: 100%;
+                padding: 10px;
+                margin-top: 5px;
+                background-color: var(--primary-color);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: bold;
+            }
+            .modal-content button:hover {
+                background-color: #a78bfa;
+            }
+            #auth-message {
+                color: #ef4444;
+                margin-bottom: 15px;
+            }
 
             /* --- Typing Indicator CSS --- */
             .typing-indicator {
@@ -586,6 +1017,18 @@ def index():
         </style>
     </head>
     <body>
+        
+        <div id="authModal" class="modal" onclick="closeModal(event)">
+            <div class="modal-content">
+                <h3 id="modalTitle">Oturum Aç</h3>
+                <p id="auth-message" style="display: none;"></p>
+                <input type="text" id="authUsername" placeholder="Kullanıcı Adı" required>
+                <input type="password" id="authPassword" placeholder="Şifre" required>
+                <button onclick="handleAuth()">Oturum Aç</button>
+                <button style="background-color: #10b981; margin-top: 15px;" onclick="switchAuthMode()">Kayıt Ol'a Geç</button>
+            </div>
+        </div>
+        
         <div class="ad-container" id="left-ad-container">
             <div class="ad-placeholder">
                 SOL REKLAM <br> 150x600
@@ -601,15 +1044,24 @@ def index():
                 </div>
             </div>
             
+            <div id="auth-status">
+                <span id="user-info">Giriş Yapılmadı</span>
+                <div id="auth-buttons">
+                    <button onclick="showModal('login')">Giriş Yap</button>
+                    <button onclick="showModal('register')">Kayıt Ol</button>
+                    <button id="logout-button" style="display: none;" onclick="logout()">Çıkış Yap</button>
+                </div>
+            </div>
+            
             <select id="persona-select" onchange="changePersona()">
                 <option value="hypernova">HyperNova (Standart) 🪐</option>
-                <option value="kaia">Kaia (Anime Kızı) 💖</option>
+                <option value="kaia" disabled>Kaia (Anime Kızı) 💖 (Premium)</option>
             </select>
 
             <div id="chat-history">
             </div>
             
-            <div id="ad-banner" onclick="alert('Premium Abone Olma Sayfasına Yönlendiriliyorsunuz!')">
+            <div id="ad-banner" class="ad-visible" onclick="alert('Premium Abone Olma Sayfasına Yönlendiriliyorsunuz! (Simülasyon)')">
                 ✨ Reklamsız Deneyim ve Özel Kaia Temaları için Premium'a Geç! ✨
             </div>
             
@@ -638,6 +1090,14 @@ def index():
             const themeToggle = document.getElementById('theme-toggle');
             const clearButton = document.getElementById('clear-button');
             const personaSelect = document.getElementById('persona-select');
+            const adBanner = document.getElementById('ad-banner');
+            const kaiaOption = personaSelect.querySelector('option[value="kaia"]');
+
+            // --- YENİ AUTH DEĞİŞKENLERİ ---
+            let isLoggedIn = false;
+            let isPremium = false;
+            let currentUsername = null;
+            let authMode = 'login'; // login veya register
 
             // --- Başlangıç Değerleri (Karaktere göre değişecek) ---
             const GREETINGS = {
@@ -656,12 +1116,160 @@ def index():
             let currentPersona = localStorage.getItem('current_persona') || 'hypernova';
             let currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 
-            // --- Tema Yönetimi ---
+            // --- AUTH FONKSİYONLARI (YENİ) ---
+            
+            function showModal(mode) {
+                authMode = mode;
+                document.getElementById('modalTitle').textContent = mode === 'login' ? 'Oturum Aç' : 'Kayıt Ol';
+                document.querySelector('.modal-content button:first-of-type').textContent = mode === 'login' ? 'Oturum Aç' : 'Kayıt Ol';
+                document.querySelector('.modal-content button:last-of-type').textContent = mode === 'login' ? "Kayıt Ol'a Geç" : "Giriş Yap'a Geç";
+                document.getElementById('auth-message').style.display = 'none';
+                document.getElementById('authModal').style.display = 'flex';
+                document.getElementById('authUsername').focus();
+            }
+
+            function closeModal(event) {
+                const modal = document.getElementById('authModal');
+                // Sadece arkaplana tıklanırsa kapat
+                if (event && event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            }
+
+            function switchAuthMode() {
+                authMode = authMode === 'login' ? 'register' : 'login';
+                showModal(authMode);
+            }
+            
+            async function handleAuth() {
+                const username = document.getElementById('authUsername').value.trim();
+                const password = document.getElementById('authPassword').value;
+                const messageElement = document.getElementById('auth-message');
+                
+                messageElement.style.display = 'none';
+                
+                if (!username || !password) {
+                    messageElement.textContent = 'Kullanıcı adı ve şifre boş olamaz.';
+                    messageElement.style.display = 'block';
+                    return;
+                }
+                
+                const endpoint = authMode === 'login' ? '/login' : '/register';
+                
+                try {
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        messageElement.textContent = data.message;
+                        messageElement.style.color = '#10b981';
+                        messageElement.style.display = 'block';
+                        
+                        // Giriş başarılıysa
+                        if (authMode === 'login') {
+                            // Cookie otomatik olarak ayarlandı
+                            await checkAuthStatus();
+                            document.getElementById('authModal').style.display = 'none';
+                            alertMessage(`Hoş geldin, ${currentUsername}! ${isPremium ? 'Premium üyeliğin aktif. ✨' : 'HyperNova ile ücretsiz sohbet edebilirsin.'}`);
+                        } else {
+                             // Kayıt başarılıysa, Giriş moduna geç
+                            switchAuthMode();
+                        }
+                    } else {
+                        messageElement.textContent = `Hata: ${data.error}`;
+                        messageElement.style.color = '#ef4444';
+                        messageElement.style.display = 'block';
+                    }
+                    
+                } catch (error) {
+                    messageElement.textContent = 'Ağ Hatası. Lütfen tekrar deneyin.';
+                    messageElement.style.color = '#ef4444';
+                    messageElement.style.display = 'block';
+                }
+            }
+            
+            async function logout() {
+                try {
+                    const response = await fetch('/logout', { method: 'POST' });
+                    if (response.ok) {
+                        await checkAuthStatus();
+                        alertMessage('Başarıyla çıkış yaptın. Güle güle! 👋');
+                        // Çıkış yapınca Kaia'yı devre dışı bırak
+                        if (currentPersona === 'kaia') {
+                             currentPersona = 'hypernova';
+                             localStorage.setItem('current_persona', 'hypernova');
+                             clearConversation(true);
+                        }
+                        updateUIForPersona();
+                    }
+                } catch (error) {
+                    console.error("Çıkış hatası:", error);
+                }
+            }
+            
+            async function checkAuthStatus() {
+                try {
+                    const response = await fetch('/is_premium');
+                    const data = await response.json();
+                    
+                    isLoggedIn = data.logged_in;
+                    currentUsername = data.username;
+                    isPremium = data.is_premium;
+                    
+                    const authStatusDiv = document.getElementById('auth-status');
+                    const userInfoSpan = document.getElementById('user-info');
+                    const authButtonsDiv = document.getElementById('auth-buttons');
+                    
+                    if (isLoggedIn) {
+                        // Giriş yapmış
+                        authButtonsDiv.innerHTML = `<button id="logout-button" onclick="logout()">Çıkış Yap</button>`;
+                        
+                        let premiumInfo = '';
+                        if (isPremium) {
+                            premiumInfo = `<span class="premium-tag" title="Bitiş: ${data.premium_until}">⭐ PREMIUM</span>`;
+                            kaiaOption.removeAttribute('disabled');
+                            kaiaOption.textContent = 'Kaia (Anime Kızı) 💖';
+                            adBanner.classList.add('ad-hidden');
+                            document.querySelectorAll('.ad-placeholder').forEach(el => el.textContent = 'Reklamsız Bölge ✨');
+                        } else {
+                            kaiaOption.setAttribute('disabled', 'disabled');
+                            kaiaOption.textContent = 'Kaia (Anime Kızı) 💖 (Premium)';
+                            adBanner.classList.remove('ad-hidden');
+                            document.querySelectorAll('.ad-placeholder').forEach(el => el.textContent = 'REKLAM 150x600');
+                        }
+                        
+                        userInfoSpan.innerHTML = `Hoş geldin, <strong>${currentUsername}</strong>${premiumInfo}`;
+
+                    } else {
+                        // Giriş yapmamış
+                        userInfoSpan.innerHTML = 'Giriş Yapılmadı';
+                        authButtonsDiv.innerHTML = `
+                            <button onclick="showModal('login')">Giriş Yap</button>
+                            <button onclick="showModal('register')">Kayıt Ol</button>
+                        `;
+                        isPremium = false;
+                        kaiaOption.setAttribute('disabled', 'disabled');
+                        kaiaOption.textContent = 'Kaia (Anime Kızı) 💖 (Premium)';
+                        adBanner.classList.remove('ad-hidden');
+                        document.querySelectorAll('.ad-placeholder').forEach(el => el.textContent = 'REKLAM 150x600');
+                    }
+                    
+                } catch (error) {
+                    console.error("Kimlik doğrulama durumu kontrol edilemedi:", error);
+                }
+            }
+            
+
+            // --- Tema Yönetimi (Aynı Kaldı) ---
             function applyTheme(theme) {
                 document.body.classList.remove('light-theme', 'dark-theme', 'kaia-theme');
                 if (currentPersona === 'kaia') {
                     document.body.classList.add('kaia-theme');
-                    // Kaia'nın kendi renkleri olduğu için light/dark modunu zorlamaya gerek yok
                 } else {
                     document.body.classList.add(theme + '-theme');
                 }
@@ -674,7 +1282,7 @@ def index():
                 applyTheme(currentTheme);
             }
             
-            // --- Persona Yönetimi (YENİ) ---
+            // --- Persona Yönetimi (GÜNCELLENDİ) ---
             function updateUIForPersona() {
                 const persona = currentPersona;
                 const greeting = GREETINGS[persona];
@@ -688,10 +1296,30 @@ def index():
 
                 // Select kutusunu doğru değere ayarla (Yüklemede gerekebilir)
                 personaSelect.value = persona;
+                
+                // Kaia seçiliyse HyperNova seçeneği devre dışı bırakılamaz
+                if (persona === 'kaia' && !isPremium) {
+                    // Bu senaryo sadece kullanıcı elle local storage'ı değiştirirse olur. 
+                    // Normalde checkAuthStatus Kaia'yı devre dışı bırakır ve changePersona HyperNova'ya döner.
+                    // Yine de bir önlem:
+                    alertMessage("Bu mod Premium gerektirir. HyperNova'ya geçiliyor.");
+                    currentPersona = 'hypernova';
+                    localStorage.setItem('current_persona', 'hypernova');
+                    updateUIForPersona();
+                    return;
+                }
             }
 
             function changePersona() {
                 const newPersona = personaSelect.value;
+                
+                if (newPersona === 'kaia' && !isPremium) {
+                    alertMessage("Kaia (Anime Kızı) modu **Premium** aboneler için ayrılmıştır. Lütfen giriş yapın veya premium abonesi olun. 🚫");
+                    // Seçimi HyperNova'ya geri döndür
+                    personaSelect.value = currentPersona; 
+                    return;
+                }
+                
                 if (newPersona !== currentPersona) {
                     if (confirm(`Modu ${newPersona === 'kaia' ? 'Kaia (Anime Kızı)' : 'HyperNova (Standart)'} olarak değiştirmek üzeresin. Geçmiş silinecek. Emin misin?`)) {
                         currentPersona = newPersona;
@@ -707,7 +1335,7 @@ def index():
             }
 
 
-            // --- Konuşmayı Temizle ---
+            // --- Konuşmayı Temizle (Aynı Kaldı) ---
             function clearConversation(isSilent = false) {
                 if (isThinking) {
                     if (!isSilent) alertMessage('Sıfırlama işlemi için bekle, sistem meşgul. ⏳');
@@ -723,7 +1351,7 @@ def index():
                 }
             }
 
-            // --- Local Storage ve History Yönetimi ---
+            // --- Local Storage ve History Yönetimi (Aynı Kaldı) ---
             function saveHistory() {
                 try {
                     const limitedHistory = conversation.slice(-20);  
@@ -734,33 +1362,35 @@ def index():
             }
 
             function loadHistory() {
-                updateUIForPersona(); // UI'ı doğru persona'ya göre ayarla
+                checkAuthStatus().then(() => { // Önce kullanıcı ve premium durumu yüklensin
+                    updateUIForPersona(); // UI'ı doğru persona/premium durumuna göre ayarla
 
-                try {
-                    const savedHistory = localStorage.getItem('hypernova_chat_history_' + currentPersona);
-                    historyDiv.innerHTML = '';
-                    
-                    if (savedHistory) {
-                        const history = JSON.parse(savedHistory);
-                        history.forEach(msg => {
-                            if (msg.role !== 'system') {
-                                displayMessage(msg.role, msg.content, false);
-                            }
-                        });
-                        conversation = history;
+                    try {
+                        const savedHistory = localStorage.getItem('hypernova_chat_history_' + currentPersona);
+                        historyDiv.innerHTML = '';
                         
-                        // Eğer geçmişte bot mesajı yoksa ilk karşılamayı göster
-                        if (conversation.length === 0 || conversation.every(msg => msg.role === 'user')) {
+                        if (savedHistory) {
+                            const history = JSON.parse(savedHistory);
+                            history.forEach(msg => {
+                                if (msg.role !== 'system') {
+                                    displayMessage(msg.role, msg.content, false);
+                                }
+                            });
+                            conversation = history;
+                            
+                            // Eğer geçmişte bot mesajı yoksa ilk karşılamayı göster
+                            if (conversation.length === 0 || conversation.every(msg => msg.role === 'user')) {
+                                displayInitialGreeting();
+                            }
+                            scrollToBottom();
+                        } else {
                             displayInitialGreeting();
                         }
-                        scrollToBottom();
-                    } else {
+                    } catch (e) {
+                        console.error("Local storage yüklenirken hata:", e);
                         displayInitialGreeting();
                     }
-                } catch (e) {
-                    console.error("Local storage yüklenirken hata:", e);
-                    displayInitialGreeting();
-                }
+                });
             }
             
             function displayInitialGreeting() {
@@ -770,179 +1400,192 @@ def index():
                 saveHistory();
             }
 
-            window.onload = loadHistory;
+            // --- Mesaj Gönderme (GÜNCELLENDİ) ---
+            async function sendMessage() {
+                const text = input.value.trim();
+                if (text === '' || isThinking) return;
 
-            // --- Voice Input ve Diğer İşlevler (Değişmedi) ---
-            
-            function displayMessage(role, content, save=true) {
+                input.value = '';
+                displayMessage('user', text);
+                
+                isThinking = true;
+                setControlsDisabled(true);
+                const typingIndicator = displayTypingIndicator();
+
+                try {
+                    // Konuşma geçmişine kullanıcı mesajını ekle
+                    conversation.push({ role: 'user', content: text });
+                    saveHistory();
+
+                    const apiMessages = conversation.map(msg => ({ role: msg.role, content: msg.content }));
+                    
+                    const response = await fetch('/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ messages: apiMessages, persona: currentPersona }),
+                    });
+
+                    removeTypingIndicator(typingIndicator);
+                    
+                    if (response.status === 403) {
+                         // Premium kısıtlaması (Kaia modu)
+                         const errorData = await response.json();
+                         const errorMessage = errorData.error;
+                         displayMessage('bot', `**HATA:** ${errorMessage}`, true);
+                         
+                         // Premium gerektiren moddan ücretsiz moda geçişi zorla
+                         if (errorData.force_persona === 'hypernova' && currentPersona === 'kaia') {
+                              currentPersona = 'hypernova';
+                              localStorage.setItem('current_persona', 'hypernova');
+                              updateUIForPersona();
+                              clearConversation(true);
+                              alertMessage("Kaia modu Premium gerektirdiği için HyperNova'ya geçildi.");
+                         }
+                         
+                    } else if (!response.ok) {
+                        const errorData = await response.json();
+                        displayMessage('bot', `**HATA:** Yapay zeka ile bağlantı kurulamadı. Lütfen kısa bir süre sonra tekrar deneyin. (${errorData.error || 'Bilinmeyen Hata'})`, true);
+                    } else {
+                        const data = await response.json();
+                        const botResponse = data.response;
+                        displayMessage('bot', botResponse, true);
+                        
+                        // Konuşma geçmişine bot mesajını ekle ve kaydet
+                        conversation.push({ role: 'assistant', content: botResponse });
+                        saveHistory();
+                    }
+
+                } catch (error) {
+                    console.error('Fetch Hatası:', error);
+                    removeTypingIndicator(typingIndicator);
+                    displayMessage('bot', '**HATA:** Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin. ⚠️', true);
+                } finally {
+                    isThinking = false;
+                    setControlsDisabled(false);
+                    // Hatanın ardından gönderilen user mesajını history'den temizle (kullanıcı tekrar denesin diye)
+                    // if (conversation.length > 0 && conversation[conversation.length - 1].role === 'user') {
+                    //     conversation.pop();
+                    //     saveHistory();
+                    // }
+                }
+            }
+
+
+            // --- Diğer Yardımcı Fonksiyonlar (Aynı Kaldı) ---
+
+            function displayMessage(role, content, scrollTo=true) {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${role}`;
-                // Markdown desteği: Basit **koyu metin** için
-                let htmlContent = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-                messageDiv.innerHTML = htmlContent;
+                // Markdown desteği için innerHTML kullanıldı (güvenlik için sanitize edilmeli ama bu demoda değil)
+                messageDiv.innerHTML = content; 
                 historyDiv.appendChild(messageDiv);
-                
-                if (save) {
-                    conversation.push({role: role, content: content});
-                    saveHistory();
+                if (scrollTo) {
+                    scrollToBottom();
                 }
-                scrollToBottom();
             }
             
+            function displayTypingIndicator() {
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'message bot typing-indicator';
+                typingDiv.innerHTML = `
+                    <span>Yazıyor...</span>
+                    <div class="spinner"></div>
+                    <div class="spinner"></div>
+                    <div class="spinner"></div>
+                `;
+                historyDiv.appendChild(typingDiv);
+                scrollToBottom();
+                return typingDiv;
+            }
+
+            function removeTypingIndicator(indicator) {
+                if (indicator && indicator.parentNode) {
+                    indicator.parentNode.removeChild(indicator);
+                }
+            }
+
             function scrollToBottom() {
                 historyDiv.scrollTop = historyDiv.scrollHeight;
             }
 
-            function setThinking(isTyping) {
-                isThinking = isTyping;
-                sendButton.disabled = isTyping;
-                input.disabled = isTyping;
-                voiceButton.disabled = isTyping;
-                clearButton.disabled = isTyping;
-
-                let typingIndicator = document.getElementById('typing-indicator');
-                if (isTyping) {
-                    if (!typingIndicator) {
-                        typingIndicator = document.createElement('div');
-                        typingIndicator.id = 'typing-indicator';
-                        typingIndicator.className = 'typing-indicator';
-                        typingIndicator.innerHTML = `
-                            <span>${currentPersona === 'kaia' ? 'Kaia yazıyor...' : 'HyperNova düşünüyor...'}</span>
-                            <div class="spinner"></div>
-                            <div class="spinner"></div>
-                            <div class="spinner"></div>
-                        `;
-                        historyDiv.appendChild(typingIndicator);
-                        scrollToBottom();
-                    }
-                } else {
-                    if (typingIndicator) {
-                        typingIndicator.remove();
-                    }
+            function setControlsDisabled(disabled) {
+                input.disabled = disabled;
+                sendButton.disabled = disabled;
+                voiceButton.disabled = disabled;
+                themeToggle.disabled = disabled;
+                clearButton.disabled = disabled;
+                personaSelect.disabled = disabled;
+                if (!disabled) {
+                    input.focus();
                 }
             }
 
-            async function sendMessage() {
-                const userMessage = input.value.trim();
-                if (userMessage === "" || isThinking) return;
+            function alertMessage(message) {
+                 const alertBox = document.createElement('div');
+                 alertBox.style.cssText = `
+                     position: fixed; top: 20px; right: 20px; 
+                     background: #4f46e5; color: white; padding: 10px 20px; 
+                     border-radius: 8px; z-index: 1001; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                     animation: slideIn 0.3s ease-out, fadeOut 0.5s ease-in 3s forwards;
+                 `;
+                 alertBox.textContent = message;
+                 document.body.appendChild(alertBox);
+                 setTimeout(() => {
+                     alertBox.remove();
+                 }, 4000); // 4 saniye sonra kaldır
 
-                // Kullanıcı mesajını göster
-                displayMessage('user', userMessage);
-                input.value = ''; // Input'u temizle
-                setThinking(true);
-
-                // API çağrısı için son 10 mesajı al (System prompt hariç)
-                const apiMessages = conversation.slice(-10).map(msg => ({
-                    role: msg.role, 
-                    content: msg.content
-                }));
-
-                try {
-                    const response = await fetch('/chat', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            messages: apiMessages, 
-                            persona: currentPersona // Seçilen persona'yı gönder
-                        })
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || `HTTP hata kodu: ${response.status}`);
-                    }
-
-                    const data = await response.json();
-                    displayMessage('bot', data.response);
-
-                } catch (error) {
-                    console.error('Sohbet hatası:', error);
-                    let errorMessage = 'Bağlantı Hatası: Sunucuya ulaşılamıyor. 🌐';
-                    if (error.message.includes('API Key Hatası')) {
-                        errorMessage = 'API Anahtarı Ayarlanmamış! Lütfen backend kodunuzdaki `API_KEY` değişkenini güncelleyin.';
-                    } else if (error.message.includes('API Zaman Aşımı')) {
-                        errorMessage = 'İşlem zaman aşımına uğradı. Tekrar dene. ⏳';
-                    } else if (error.message.includes('Limit')) {
-                        errorMessage = 'İstek limitini aştın! Bir saat beklemen gerekiyor. 🔒';
-                    } else if (error.message.includes('OpenRouter API Hatası')) {
-                         errorMessage = `OpenRouter Hatası: ${error.message}`;
-                    }
-                    displayMessage('bot', `**HATA!** ${errorMessage}`, false);
-                } finally {
-                    setThinking(false);
-                }
+                 const style = document.createElement('style');
+                 style.textContent = `
+                     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+                     @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+                 `;
+                 document.head.appendChild(style);
             }
             
-            function alertMessage(msg) {
-                // Basit bir uyarı mesajı (isteğe bağlı olarak geliştirilebilir)
-                console.log(msg); 
-                // alert(msg); // Kullanıcı deneyimini bozmaması için yorum satırı yapıldı
-            }
-
-            // --- Voice Input (Web Speech API) ---
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            let recognition;
-
-            if (SpeechRecognition) {
-                recognition = new SpeechRecognition();
-                recognition.lang = 'tr-TR';
-                recognition.interimResults = false;
-
-                recognition.onresult = (event) => {
-                    const speechResult = event.results[0][0].transcript;
-                    input.value = speechResult;
-                    toggleVoiceInput();
-                    sendMessage();
-                };
-
-                recognition.onend = () => {
-                    if (isVoiceListening) {
-                        recognition.start();
-                    }
-                    voiceButton.classList.remove('listening');
-                    voiceButton.textContent = '🎙️';
-                    input.placeholder = GREETINGS[currentPersona].placeholder;
-                };
-
-                recognition.onerror = (event) => {
-                    console.error('Sesli tanıma hatası:', event.error);
-                    alertMessage('Sesli giriş başarısız. Mikrofon izni kontrol et.');
-                    isVoiceListening = false;
-                    voiceButton.classList.remove('listening');
-                    voiceButton.textContent = '🎙️';
-                };
-            } else {
-                voiceButton.style.display = 'none';
-            }
-
             function toggleVoiceInput() {
-                if (isThinking) {
-                    alertMessage('Sistem meşgul, lütfen cevap gelene kadar bekle. ⏳');
-                    return;
-                }
-                if (isVoiceListening) {
-                    isVoiceListening = false;
-                    recognition.stop();
-                } else {
-                    isVoiceListening = true;
-                    recognition.start();
-                    voiceButton.classList.add('listening');
-                    voiceButton.textContent = '🔴 Dinliyorum...';
-                    input.placeholder = 'Konuş...';
-                }
+                alertMessage("Sesli giriş özelliği bu demoda aktif değil. 🎤");
             }
+            
+
+            // Sayfa Yüklendiğinde
+            document.addEventListener('DOMContentLoaded', () => {
+                loadHistory(); // Premium kontrolü burada tetiklenir
+            });
+            
+            // Enter tuşuna basınca mesaj gönder
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault(); 
+                    sendMessage();
+                }
+            });
+            
+            // Modaldan enter ile giriş/kayıt
+            document.getElementById('authPassword').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault(); 
+                    handleAuth();
+                }
+            });
+
         </script>
     </body>
     </html>
     """
     return render_template_string(html_template)
 
+
 if __name__ == '__main__':
-    # Flask uygulamasını çalıştırmak için gerekli
-    if os.name == 'nt': # Windows için
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    # Geliştirici kullanıcıyı önceden kaydet (in-memory demo için)
+    # Bu veritabanı boşsa ilk kez sunucu başladığında çalışır.
+    if DEVELOPER_USERNAME not in USER_DB:
+        USER_DB[DEVELOPER_USERNAME] = {
+            'username': DEVELOPER_USERNAME,
+            'password': DEVELOPER_PASSWORD,
+            'premium_until': datetime.now() + timedelta(days=9999) # Geliştirici her zaman premium
+        }
+        logger.info(f"Geliştirici kullanıcısı '{DEVELOPER_USERNAME}' sisteme eklendi.")
         
-    # Güvenlik için sadece localhost'ta çalıştırırken debug=True kullanın
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000)
