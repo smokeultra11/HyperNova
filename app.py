@@ -150,7 +150,7 @@ async def chat_endpoint():
         
         # Yanıtı döndür
         return jsonify({"response": bleach.clean(bot_response)}), 200
-    
+        
     except APIRequestError as e:
         logger.error(f"API İstek Hatası: {e}")
         return jsonify({"error": str(e)}), 503
@@ -246,22 +246,53 @@ def index():
                 }
             }
             
-            /* --- Genel Stiller --- */
+            /* --- Genel Stiller (Değiştirildi) --- */
             body {  
                 background-color: var(--bg-color);  
                 color: var(--text-color);  
                 font-family: 'Inter', sans-serif;
                 margin: 0;  
-                padding: 10px;  
-                display: flex;  
-                justify-content: center;  
-                align-items: center;  
+                padding: 0;  
                 min-height: 100vh;  
                 transition: background-color 0.4s ease; /* Tema geçiş animasyonu */
+
+                /* YENİ: Sayfa düzenini Flexbox'a çevir */
+                display: flex;
+                justify-content: center;
+                align-items: center;
             }
+
+            /* YENİ: Reklam Konteyneri Stil Tanımları */
+            .ad-container {
+                width: 150px; /* Reklam genişliği */
+                height: 90vh; /* Ekran yüksekliğinin %90'ı */
+                max-height: 800px;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                padding: 10px 0;
+                align-self: center; /* Ortada hizalama */
+            }
+
+            .ad-placeholder {
+                flex-grow: 1; /* Alandaki tüm boşluğu kapla */
+                background-color: var(--history-bg); /* Hafif bir arkaplan */
+                border: 1px dashed var(--border-color);
+                color: var(--text-color);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                text-align: center;
+                font-size: 14px;
+                font-weight: 600;
+                border-radius: 8px;
+                opacity: 0.7;
+            }
+
             .chat-container {  
-                width: 95%;
+                /* width: 95%; */ /* Kaldırıldı, sayfa yapısı değişti */
                 max-width: 600px;
+                width: 600px; /* Sabit genişlik belirle */
                 height: 90vh;
                 max-height: 800px;
                 background-color: var(--card-bg);  
@@ -272,7 +303,11 @@ def index():
                 flex-direction: column;  
                 border: 1px solid var(--border-color);
                 transition: all 0.4s ease;
+                margin: 10px; /* Reklamlarla arasına boşluk bırak */
             }
+            /* ... (Geri kalan CSS stilleri aynı kalır) ... */
+            
+            /* ... (Kaldırılan CSS kodları yerine sadece farklı olanları tutalım) ... */
             .header {
                 display: flex;
                 justify-content: space-between;
@@ -504,6 +539,11 @@ def index():
             }
 
             /* --- Responsive CSS (Mobil için) --- */
+            @media (max-width: 900px) { /* Reklamları gizlemek için breakpoint yükseltildi */
+                .ad-container {
+                    display: none; /* Yan reklamları mobil/dar ekranda gizle */
+                }
+            }
             @media (max-width: 640px) {
                 body {
                     padding: 0;
@@ -515,6 +555,7 @@ def index():
                     padding: 15px;
                     border-radius: 0;
                     box-shadow: none;
+                    margin: 0; /* Reklamlar gizlendiği için margin kaldırıldı */
                 }
                 .title {
                     font-size: 22px;
@@ -545,6 +586,12 @@ def index():
         </style>
     </head>
     <body>
+        <div class="ad-container" id="left-ad-container">
+            <div class="ad-placeholder">
+                SOL REKLAM <br> 150x600
+            </div>
+        </div>
+
         <div class="chat-container">
             <div class="header">
                 <div class="title">HyperNova AI 🪐✨</div>
@@ -570,6 +617,12 @@ def index():
                 <input type="text" id="message-input" placeholder="Kozmik bir soru sor..." onkeypress="if(event.key==='Enter') sendMessage()">
                 <button id="voice-button" class="action-button" onclick="toggleVoiceInput()" title="Sesli Giriş">🎙️</button>
                 <button id="send-button" class="action-button" onclick="sendMessage()">Gönder</button>
+            </div>
+        </div>
+        
+        <div class="ad-container" id="right-ad-container">
+            <div class="ad-placeholder">
+                SAĞ REKLAM <br> 150x600
             </div>
         </div>
 
@@ -719,9 +772,114 @@ def index():
 
             window.onload = loadHistory;
 
+            // --- Voice Input ve Diğer İşlevler (Değişmedi) ---
+            
+            function displayMessage(role, content, save=true) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${role}`;
+                // Markdown desteği: Basit **koyu metin** için
+                let htmlContent = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                messageDiv.innerHTML = htmlContent;
+                historyDiv.appendChild(messageDiv);
+                
+                if (save) {
+                    conversation.push({role: role, content: content});
+                    saveHistory();
+                }
+                scrollToBottom();
+            }
+            
+            function scrollToBottom() {
+                historyDiv.scrollTop = historyDiv.scrollHeight;
+            }
 
-            // --- Voice Input ve Diğer İşlevler aynı kalır ---
-            // ... (Mevcut JS kodundaki diğer fonksiyonlar buraya yapıştırılır) ...
+            function setThinking(isTyping) {
+                isThinking = isTyping;
+                sendButton.disabled = isTyping;
+                input.disabled = isTyping;
+                voiceButton.disabled = isTyping;
+                clearButton.disabled = isTyping;
+
+                let typingIndicator = document.getElementById('typing-indicator');
+                if (isTyping) {
+                    if (!typingIndicator) {
+                        typingIndicator = document.createElement('div');
+                        typingIndicator.id = 'typing-indicator';
+                        typingIndicator.className = 'typing-indicator';
+                        typingIndicator.innerHTML = `
+                            <span>${currentPersona === 'kaia' ? 'Kaia yazıyor...' : 'HyperNova düşünüyor...'}</span>
+                            <div class="spinner"></div>
+                            <div class="spinner"></div>
+                            <div class="spinner"></div>
+                        `;
+                        historyDiv.appendChild(typingIndicator);
+                        scrollToBottom();
+                    }
+                } else {
+                    if (typingIndicator) {
+                        typingIndicator.remove();
+                    }
+                }
+            }
+
+            async function sendMessage() {
+                const userMessage = input.value.trim();
+                if (userMessage === "" || isThinking) return;
+
+                // Kullanıcı mesajını göster
+                displayMessage('user', userMessage);
+                input.value = ''; // Input'u temizle
+                setThinking(true);
+
+                // API çağrısı için son 10 mesajı al (System prompt hariç)
+                const apiMessages = conversation.slice(-10).map(msg => ({
+                    role: msg.role, 
+                    content: msg.content
+                }));
+
+                try {
+                    const response = await fetch('/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            messages: apiMessages, 
+                            persona: currentPersona // Seçilen persona'yı gönder
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || `HTTP hata kodu: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    displayMessage('bot', data.response);
+
+                } catch (error) {
+                    console.error('Sohbet hatası:', error);
+                    let errorMessage = 'Bağlantı Hatası: Sunucuya ulaşılamıyor. 🌐';
+                    if (error.message.includes('API Key Hatası')) {
+                        errorMessage = 'API Anahtarı Ayarlanmamış! Lütfen backend kodunuzdaki `API_KEY` değişkenini güncelleyin.';
+                    } else if (error.message.includes('API Zaman Aşımı')) {
+                        errorMessage = 'İşlem zaman aşımına uğradı. Tekrar dene. ⏳';
+                    } else if (error.message.includes('Limit')) {
+                        errorMessage = 'İstek limitini aştın! Bir saat beklemen gerekiyor. 🔒';
+                    } else if (error.message.includes('OpenRouter API Hatası')) {
+                         errorMessage = `OpenRouter Hatası: ${error.message}`;
+                    }
+                    displayMessage('bot', `**HATA!** ${errorMessage}`, false);
+                } finally {
+                    setThinking(false);
+                }
+            }
+            
+            function alertMessage(msg) {
+                // Basit bir uyarı mesajı (isteğe bağlı olarak geliştirilebilir)
+                console.log(msg); 
+                // alert(msg); // Kullanıcı deneyimini bozmaması için yorum satırı yapıldı
+            }
 
             // --- Voice Input (Web Speech API) ---
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -771,192 +929,20 @@ def index():
                     isVoiceListening = true;
                     recognition.start();
                     voiceButton.classList.add('listening');
-                    voiceButton.textContent = '🔴 Dinleniyor...';
-                    input.placeholder = 'Lütfen konuşun...';
-                    input.focus();
+                    voiceButton.textContent = '🔴 Dinliyorum...';
+                    input.placeholder = 'Konuş...';
                 }
             }
-            
-            function disableInput(disable) {
-                isThinking = disable;
-                input.disabled = disable;
-                sendButton.disabled = disable;
-                voiceButton.disabled = disable;
-                clearButton.disabled = disable;
-                personaSelect.disabled = disable; // Seçim butonunu da deaktif et
-                
-                if (disable) {
-                    sendButton.innerHTML = 'Bekle...';
-                } else {
-                    sendButton.innerHTML = 'Gönder';
-                    if (!isVoiceListening) {
-                        input.focus();
-                    }
-                }
-            }
-
-            function addTypingIndicator() {
-                const indicator = document.createElement('div');
-                indicator.id = 'typing-indicator';
-                indicator.classList.add('typing-indicator', 'bot');
-                indicator.innerHTML = '<div class="spinner"></div><div class="spinner"></div><div class="spinner"></div> <span>Yanıt oluşturuluyor...</span>';
-                historyDiv.appendChild(indicator);
-                scrollToBottom();
-                return indicator;
-            }
-
-            function removeTypingIndicator(indicator) {
-                if (indicator && indicator.parentNode) {
-                    indicator.parentNode.removeChild(indicator);
-                }
-            }
-            
-            function typeWriter(element, text) {
-                let i = 0;
-                element.innerHTML = '';
-
-                function type() {
-                    if (i < text.length) {
-                        let char = text[i];
-                        
-                        if (char === '<') {
-                            const tagEndIndex = text.indexOf('>', i);
-                            if (tagEndIndex !== -1) {
-                                const tagContent = text.substring(i, tagEndIndex + 1);
-                                element.innerHTML += tagContent;
-                                i = tagEndIndex + 1;
-                            } else { i++; }
-                        } else if (char === '&') {
-                            const entityEndIndex = text.indexOf(';', i);
-                            if (entityEndIndex !== -1) {
-                                const entityContent = text.substring(i, entityEndIndex + 1);
-                                element.innerHTML += entityContent;
-                                i = entityEndIndex + 1;
-                            } else { i++; }
-                        } else {
-                            element.innerHTML += char;
-                            i++;
-                        }
-                        
-                        scrollToBottom();
-                        setTimeout(type, 30);
-                    }
-                }
-                type();
-            }
-
-
-            function displayMessage(role, content, animate = true) {
-                const messageDiv = document.createElement('div');
-                messageDiv.classList.add('message', role);
-                
-                let htmlContent = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-                htmlContent = htmlContent.replace(/\*(.*?)\*/g, '<em>$1</em>');
-                
-                historyDiv.appendChild(messageDiv);
-                
-                if (animate && role === 'bot') {
-                    typeWriter(messageDiv, htmlContent);
-                } else {
-                    messageDiv.innerHTML = htmlContent;
-                    scrollToBottom();
-                }
-                
-                return messageDiv;
-            }
-            
-            function alertMessage(message) {
-                const alertDiv = document.createElement('div');
-                alertDiv.classList.add('message', 'bot');
-                alertDiv.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
-                alertDiv.style.color = '#ef4444';
-                alertDiv.style.fontSize = '14px';
-                alertDiv.style.border = '1px solid #ef4444';
-                alertDiv.innerHTML = '<strong>Hata:</strong> ' + message;
-                historyDiv.appendChild(alertDiv);
-                scrollToBottom();
-            }
-
-            function scrollToBottom() {
-                historyDiv.scrollTop = historyDiv.scrollHeight;
-            }
-
-            async function sendMessage() {
-                const message = input.value.trim();
-                
-                if (!message || isThinking) {
-                    return;
-                }
-
-                disableInput(true);
-                
-                displayMessage('user', message);
-                conversation.push({ role: "user", content: message });
-                input.value = '';
-                
-                const typingIndicator = addTypingIndicator();
-
-                try {
-                    const response = await fetch('/chat', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ 
-                            messages: conversation, 
-                            persona: currentPersona // YENİ: Persona bilgisini gönder
-                        })
-                    });
-                    
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || `HTTP Hata: ${response.status}`);
-                    }
-
-                    const data = await response.json();
-                    const botResponse = data.response;
-                    
-                    // Geçmişteki son bot mesajı eğer initialGreeting ise (yeniden yüklenmişse), onu sil.
-                    const initialGreetingText = GREETINGS[currentPersona].text;
-                    if (conversation.length > 0 && conversation[conversation.length - 1].role === 'bot' && conversation[conversation.length - 1].content === initialGreetingText) {
-                        conversation.pop(); // İlk karşılama mesajını kaldır
-                    }
-
-                    removeTypingIndicator(typingIndicator);
-                    displayMessage('bot', botResponse);
-                    
-                    conversation.push({ role: "assistant", content: botResponse });
-                    saveHistory();
-
-                } catch (error) {
-                    console.error('API İsteği Başarısız:', error);
-                    removeTypingIndicator(typingIndicator);
-                    alertMessage(error.message || "Bilinmeyen bir kozmik anormallik oluştu. Tekrar dene.");
-                    // Hatalı durumda sadece son kullanıcı mesajını tut
-                    if (conversation.length > 0 && conversation[conversation.length - 1].role === 'user') {
-                        conversation.pop();
-                    }
-                    saveHistory();
-                } finally {
-                    disableInput(false);
-                }
-            }
-            
-            // Kodun geri kalanında eksik olan fonksiyonları tamamlamak için:
-            // window.onload ile loadHistory çağrılıyor ve changePersona bu fonksiyonları kullanıyor.
-            // Bu kısım tamamlanmıştır.
-
         </script>
     </body>
     </html>
     """
     return render_template_string(html_template)
 
-# --- Uygulama Başlatma ---
 if __name__ == '__main__':
-    # Hata ayıklama modunu devre dışı bırakıp, sunucuyu asenkron destekle başlatın
-    # Flask, aiohttp ve asyncio kullandığı için genellikle Gunicorn veya uvicorn ile başlatılması önerilir.
-    # Ancak basit test için bu kısmı kullanabilirsiniz:
-    # app.run(debug=False, host='0.0.0.0', port=5000)
-    logger.info("Flask uygulamasını 'gunicorn -k uvicorn.workers.UvicornWorker app:app' komutuyla başlatmanız önerilir.")
-    pass # Bu satır test ortamında çalışmak için 'app.run(...)' ile değiştirilebilir.
+    # Flask uygulamasını çalıştırmak için gerekli
+    if os.name == 'nt': # Windows için
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        
+    # Güvenlik için sadece localhost'ta çalıştırırken debug=True kullanın
+    app.run(host='0.0.0.0', port=5000, debug=True)
