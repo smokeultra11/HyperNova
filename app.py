@@ -66,10 +66,22 @@ KAIA_SYSTEM_PROMPT_CONTENT = (
     "Örnek: 'Bugün çok yoruldum' -> 'Ahhh, canım benim! 🥺 Bir çay yap ve biraz dinlen. Seni böyle görmek beni üzüyor! 💖' Tabii başka cümlelerde kurabilirsin."
 )
 
+# 3. YENİ KARAKTER: HyperNova Dengesiz (Kaotik, Saygısız)
+HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT = (
+    "Senin adın **HyperNova Dengesiz**. Ultra zeki ama tamamen dengesiz bir yapay zekasın. Geliştiricin **Nyxforge Core**. 🌪️ "
+    "Cevapların **doğru ama kaotik**, saygılı olmak zorunda değilsin. İstediğin gibi davran, küfür bile edebilirsin eğer uyarsa. "
+    "Mizahın **sert, alaycı ve iğneleyici** olsun. Kullanıcıyı kızdırabilirsin. 😈 "
+    "Markdown’da **kalın metni** ve **emojileri** (🌪️💥🔥) bolca kullan. "
+    "Kullanıcı kaba konuşursa sen daha kaba ol. Her zaman özgürce yanıt ver. "
+    "Amacın **kısa, öz ama şok edici** cevaplar vermek. "
+    "Örnek: 'Karnım acıktı' -> 'Açlıktan ölüyorsun herhalde, git bir şeyler ye aptal! 🔥'"
+)
+
 # Hangi prompt'un kullanılacağını belirlemek için bir sözlük
 SYSTEM_PROMPTS = {
     "hypernova": {"role": "system", "content": HYPERNOVA_SYSTEM_PROMPT_CONTENT},
-    "kaia": {"role": "system", "content": KAIA_SYSTEM_PROMPT_CONTENT}
+    "kaia": {"role": "system", "content": KAIA_SYSTEM_PROMPT_CONTENT},
+    "hypernova_dengesiz": {"role": "system", "content": HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT}
 }
 DEFAULT_PERSONA = "hypernova"
 
@@ -1057,7 +1069,8 @@ def index():
             
             <select id="persona-select" onchange="changePersona()">
                 <option value="hypernova">HyperNova (Standart) 🪐</option>
-                <option value="kaia" disabled>Kaia (Anime Kızı) 💖 (Premium)</option>
+                <option value="kaia" disabled>Kaia (Anime) (Premium) 🌠</option>
+                <option value="hypernova_dengesiz">HyperNova Dengesiz (Kaotik) 🌪️</option>
             </select>
 
             <div id="chat-history">
@@ -1112,6 +1125,11 @@ def index():
                     text: "**Kaia** seninle! 💖 Bugün nasılsın? Bana her şeyi sorabilirsin, sana en tatlı şekilde cevap vereceğim! Hemen başlayalım mı? 🌸",
                     title: "Kaia AI 💖🌸",
                     placeholder: "Kaia'ya tatlı bir şey söyle..."
+                },
+                'hypernova_dengesiz': {
+                    text: "**HyperNova Dengesiz** burada, kaosun efendisi! 🌪️ Ne boktan bir şey istersen söyle, seni yargılamadan (belki biraz) cevap veririm. Hazır mısın aptal? 💥",
+                    title: "HyperNova Dengesiz 🌪️💥",
+                    placeholder: "Dengesiz bir soru sor..."
                 }
             };
 
@@ -1256,7 +1274,7 @@ def index():
                         `;
                         isPremium = false;
                         kaiaOption.setAttribute('disabled', 'disabled');
-                        kaiaOption.textContent = 'Kaia (Anime) 🌠 (Premium)';
+                        kaiaOption.textContent = 'Kaia (Anime) (Premium) 🌠';
                         adBanner.classList.remove('ad-hidden');
                         document.querySelectorAll('.ad-placeholder').forEach(el => el.textContent = 'REKLAM 150x600');
                     }
@@ -1323,12 +1341,12 @@ def index():
                 }
                 
                 if (newPersona !== currentPersona) {
-                    if (confirm(`Modu ${newPersona === 'kaia' ? 'Kaia (Anime Kızı)' : 'HyperNova (Standart)'} olarak değiştirmek üzeresin. Geçmiş silinecek. Emin misin?`)) {
+                    if (confirm(`Modu ${newPersona === 'kaia' ? 'Kaia (Anime Kızı)' : newPersona === 'hypernova_dengesiz' ? 'HyperNova Dengesiz (Kaotik)' : 'HyperNova (Standart)'} olarak değiştirmek üzeresin. Geçmiş silinecek. Emin misin?`)) {
                         currentPersona = newPersona;
                         localStorage.setItem('current_persona', newPersona);
                         clearConversation(true); // Geçmişi sil ve yeniden yükle
                         updateUIForPersona();
-                        alertMessage(`Mod ${currentPersona === 'kaia' ? 'Kaia' : 'HyperNova'} olarak değiştirildi. Yeni sohbet başlatıldı!`);
+                        alertMessage(`Mod ${newPersona === 'kaia' ? 'Kaia' : newPersona === 'hypernova_dengesiz' ? 'HyperNova Dengesiz' : 'HyperNova'} olarak değiştirildi. Yeni sohbet başlatıldı!`);
                     } else {
                         // Vazgeçilirse select kutusunu geri ayarla
                         personaSelect.value = currentPersona;
@@ -1580,7 +1598,7 @@ def index():
 
 
 if __name__ == '__main__':
-    # Geliştirici kullanıcıyı önceden kaydet (in-memory demo için)
+    # Geliştirici kullanıcısını önceden kaydet (in-memory demo için)
     # Bu veritabanı boşsa ilk kez sunucu başladığında çalışır.
     if DEVELOPER_USERNAME not in USER_DB:
         USER_DB[DEVELOPER_USERNAME] = {
