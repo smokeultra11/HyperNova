@@ -1382,11 +1382,28 @@ def index():
                 }
             }
 
-            // --- Local Storage ve History Yönetimi (Aynı Kaldı) ---
+            // --- Local Storage ve History Yönetimi (GÜNCELLENDİ: Maks 5 sohbet ve 20 gün kuralı) ---
             function saveHistory() {
                 try {
-                    const limitedHistory = conversation.slice(-20);  
-                    localStorage.setItem('hypernova_chat_history_' + currentPersona, JSON.stringify(limitedHistory));
+                    // Maksimum 5 sohbet: Her sohbet bir user-bot çifti olarak sayılır
+                    // Conversation'da user ve assistant mesajlarını filtrele, son 5 çifti al (yaklaşık 10 mesaj)
+                    const exchanges = [];
+                    for (let i = 0; i < conversation.length; i += 2) {
+                        if (conversation[i] && conversation[i+1] && 
+                            conversation[i].role === 'user' && conversation[i+1].role === 'assistant') {
+                            exchanges.push(conversation[i]);
+                            exchanges.push(conversation[i+1]);
+                        } else if (conversation[i] && conversation[i].role === 'user') {
+                            exchanges.push(conversation[i]); // Tamamlanmamış sohbeti de ekle
+                        }
+                    }
+                    const limitedHistory = exchanges.slice(0, 10); // Maks 5 çift = 10 mesaj
+                    
+                    const historyData = {
+                        messages: limitedHistory,
+                        last_updated: Date.now()
+                    };
+                    localStorage.setItem('hypernova_chat_history_' + currentPersona, JSON.stringify(historyData));
                 } catch (e) {
                     console.warn("Local storage kaydı başarısız oldu.", e);
                 }
@@ -1397,11 +1414,23 @@ def index():
                     updateUIForPersona(); // UI'ı doğru persona/premium durumuna göre ayarla
 
                     try {
-                        const savedHistory = localStorage.getItem('hypernova_chat_history_' + currentPersona);
+                        const savedData = localStorage.getItem('hypernova_chat_history_' + currentPersona);
                         historyDiv.innerHTML = '';
                         
-                        if (savedHistory) {
-                            const history = JSON.parse(savedHistory);
+                        if (savedData) {
+                            const historyData = JSON.parse(savedData);
+                            const now = Date.now();
+                            const TWENTY_DAYS_MS = 20 * 24 * 60 * 60 * 1000;
+                            
+                            // 20 gün kuralı: Eğer güncellenmemişse sil
+                            if (now - historyData.last_updated > TWENTY_DAYS_MS) {
+                                localStorage.removeItem('hypernova_chat_history_' + currentPersona);
+                                alertMessage('Eski sohbet geçmişi otomatik olarak silindi (20 gün kuralı). Yeni sohbet başlatılıyor. 🗑️');
+                                displayInitialGreeting();
+                                return;
+                            }
+                            
+                            const history = historyData.messages;
                             history.forEach(msg => {
                                 if (msg.role !== 'system') {
                                     displayMessage(msg.role, msg.content, false);
