@@ -37,8 +37,8 @@ USER_DB: Dict[str, Dict] = {}
 SESSION_MAP: Dict[str, str] = {} # session_id: username
 
 # Geliştirici kullanıcı adı (Admin paneline erişim için)
-DEVELOPER_USERNAME = "nyxcore"
-DEVELOPER_PASSWORD = "supersecretpassword" # Gerçekte hashlenmeli!
+DEVELOPER_USERNAME = "yuiouo"
+DEVELOPER_PASSWORD = "TheLastGalaxy*" # Gerçekte hashlenmeli!
 
 # --- KARAKTER PROMPTLARI (Aynı Kaldı) ---
 
