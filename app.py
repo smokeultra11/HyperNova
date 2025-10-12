@@ -1061,7 +1061,7 @@ def index():
             <div id="chat-history">
             </div>
             
-            <div id="ad-banner" class="ad-visible" onclick="alert('Premium Abone Olma Sayfasına Yönlendiriliyorsunuz! (Simülasyon)')">
+            <div id="ad-banner" class="ad-visible" onclick="alert('Premium'a geçmek için Discord sunucumuzdan bilgi edinebilirsin! "https://discord.gg/J4h6zbHpYq"')">
                 ✨ Reklamsız Deneyim ve Özel Kaia Temaları için Premium'a Geç! ✨
             </div>
             
