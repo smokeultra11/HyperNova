@@ -1,4 +1,4 @@
-bu website yapay zeka kodunda yeni bir karakter ekle, adı "HyperNova Dengesiz" olsun ve saygılı falan olmak zorunda olmasın o kadar.: import os
+import os
 import logging
 import json
 import asyncio
