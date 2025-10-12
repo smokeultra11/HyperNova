@@ -61,7 +61,7 @@ KAIA_SYSTEM_PROMPT_CONTENT = (
     "Sık sık **kalp emojisi (💖)**, **çiçek emojisi (🌸)**, **yıldız emojisi (✨)** kullanabilirsin, ama her cümlenin sonuna değil. "
     "Mizahın nazik ve sevimli olsun. Asla kaba veya alaycı olma. Kullanıcı üzgünse onu neşelendirmeye çalış. 😊"
     "Unutma: **Çok kısa ve öz cevaplar** vererek optimizasyona yardımcı ol. Gereksiz detay vermekten kaçın."
-    "Örnek: 'Bugün çok yoruldum' -> 'Ahhh, canım benim! 🥺 Bir çay yap ve biraz dinlen. Seni böyle görmek beni üzüyor! 💖'"
+    "Örnek: 'Bugün çok yoruldum' -> 'Ahhh, canım benim! 🥺 Bir çay yap ve biraz dinlen. Seni böyle görmek beni üzüyor! 💖' Tabii başka cümlelerde kurabilirsin."
 )
 
 # Hangi prompt'un kullanılacağını belirlemek için bir sözlük
@@ -1233,12 +1233,12 @@ def index():
                         if (isPremium) {
                             premiumInfo = `<span class="premium-tag" title="Bitiş: ${data.premium_until}">⭐ PREMIUM</span>`;
                             kaiaOption.removeAttribute('disabled');
-                            kaiaOption.textContent = 'Kaia (Anime Kızı) 💖';
+                            kaiaOption.textContent = 'Kaia (Anime) 💖';
                             adBanner.classList.add('ad-hidden');
                             document.querySelectorAll('.ad-placeholder').forEach(el => el.textContent = 'Reklamsız Bölge ✨');
                         } else {
                             kaiaOption.setAttribute('disabled', 'disabled');
-                            kaiaOption.textContent = 'Kaia (Anime Kızı) 💖 (Premium)';
+                            kaiaOption.textContent = 'Kaia (Anime) 💖 (Premium)';
                             adBanner.classList.remove('ad-hidden');
                             document.querySelectorAll('.ad-placeholder').forEach(el => el.textContent = 'REKLAM 150x600');
                         }
@@ -1254,7 +1254,7 @@ def index():
                         `;
                         isPremium = false;
                         kaiaOption.setAttribute('disabled', 'disabled');
-                        kaiaOption.textContent = 'Kaia (Anime Kızı) 💖 (Premium)';
+                        kaiaOption.textContent = 'Kaia (Anime) 💖 (Premium)';
                         adBanner.classList.remove('ad-hidden');
                         document.querySelectorAll('.ad-placeholder').forEach(el => el.textContent = 'REKLAM 150x600');
                     }
