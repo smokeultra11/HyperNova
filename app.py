@@ -1233,12 +1233,12 @@ def index():
                         if (isPremium) {
                             premiumInfo = `<span class="premium-tag" title="Bitiş: ${data.premium_until}">⭐ PREMIUM</span>`;
                             kaiaOption.removeAttribute('disabled');
-                            kaiaOption.textContent = 'Kaia (Anime) 💖';
+                            kaiaOption.textContent = 'Kaia (Anime) 🌠';
                             adBanner.classList.add('ad-hidden');
                             document.querySelectorAll('.ad-placeholder').forEach(el => el.textContent = 'Reklamsız Bölge ✨');
                         } else {
                             kaiaOption.setAttribute('disabled', 'disabled');
-                            kaiaOption.textContent = 'Kaia (Anime) 💖 (Premium)';
+                            kaiaOption.textContent = 'Kaia (Anime) 🌠 (Premium)';
                             adBanner.classList.remove('ad-hidden');
                             document.querySelectorAll('.ad-placeholder').forEach(el => el.textContent = 'REKLAM 150x600');
                         }
@@ -1254,7 +1254,7 @@ def index():
                         `;
                         isPremium = false;
                         kaiaOption.setAttribute('disabled', 'disabled');
-                        kaiaOption.textContent = 'Kaia (Anime) 💖 (Premium)';
+                        kaiaOption.textContent = 'Kaia (Anime) 🌠 (Premium)';
                         adBanner.classList.remove('ad-hidden');
                         document.querySelectorAll('.ad-placeholder').forEach(el => el.textContent = 'REKLAM 150x600');
                     }
