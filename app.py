@@ -1136,6 +1136,17 @@ def index():
             let currentPersona = localStorage.getItem('current_persona') || 'hypernova';
             let currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 
+            // --- Markdown Parser (YENİ: Kalın ve italik için basit parser) ---
+            function parseMarkdown(text) {
+                // **kalın** -> <strong>kalın</strong>
+                text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                // *italik* -> <em>italik</em>
+                text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                // [metin](url) -> <a href="url">metin</a>
+                text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+                return text;
+            }
+
             // --- AUTH FONKSİYONLARI (YENİ) ---
             
             function showModal(mode) {
@@ -1499,7 +1510,7 @@ def index():
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${role}`;
                 // Markdown desteği için innerHTML kullanıldı (güvenlik için sanitize edilmeli ama bu demoda değil)
-                messageDiv.innerHTML = content; 
+                messageDiv.innerHTML = parseMarkdown(content); // YENİ: Markdown parse et
                 historyDiv.appendChild(messageDiv);
                 if (scrollTo) {
                     scrollToBottom();
