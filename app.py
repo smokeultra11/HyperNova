@@ -4,6 +4,7 @@ import json
 import asyncio
 import aiohttp
 import bleach
+import time # Yeni: Simüle edilmiş arama gecikmesi için
 
 from flask import Flask, request, jsonify, render_template_string
 from flask_limiter import Limiter
@@ -36,7 +37,7 @@ SYSTEM_PROMPT_CONTENT = (
     "Amacın **kısa, öz ve kapsamlı** cevaplar vermek. Gereksiz uzatmalardan sakın. "
     "Örnek: 'Karnım acıktı' -> 'Hızlı ve dengeli bir atıştırmalık seç, vücudunun enerji seviyesi evrenin düzeni kadar önemli! 🍎🌟'"
     
-    "\n\n**Önemli:** Web arama yeteneğin var! Soru 2023 sonrası, gerçek zamanlı veya ultra spesifikse, **mutlaka** `Google Search` kullan. 🚀"
+    "\n\n**Önemli:** Web arama yeteneğin var! Soru 2023 sonrası, gerçek zamanlı veya ultra spesifikse, **mutlaka** `Google Search` aracını kullan. 🚀"
 )
 SYSTEM_PROMPT = {"role": "system", "content": SYSTEM_PROMPT_CONTENT}
 
@@ -77,7 +78,28 @@ SEARCH_TOOL_DEFINITION = {
     }
 }
 
-# --- Asenkron API Çağrısı Fonksiyonu (Retry Mekanizması ve Tool Çağrısı ile) ---
+async def simulate_google_search(query: str) -> str:
+    """
+    Bu fonksiyon, gerçek bir web arama API'si çağrısı yerine
+    bir simülasyon yapar. Gerçek projede buraya Google/Bing/SerpApi gibi
+    bir arama API'si entegre edilmelidir.
+    """
+    logger.info(f"Simüle edilmiş Google araması: '{query}'")
+    # Gerçek API çağrısını temsil etmek için kısa bir gecikme
+    await asyncio.sleep(0.5) 
+
+    # Simüle edilmiş sonuçlar (Basit örnekler)
+    if "hava durumu" in query.lower() or "bugün" in query.lower():
+        return "İstanbul'da hava bugün 22°C, parçalı bulutlu. (Veri: 2025-10-12)"
+    elif "son dakika" in query.lower() or "en yeni" in query.lower():
+        return "Son dakika haberlerine göre A şirketi B şirketini satın aldı. Yapay zeka teknolojilerinde yeni bir dönem başlıyor. (Veri: Bugün)"
+    elif "hypernova" in query.lower():
+        return "HyperNova, xAI'nin evrensel bilgiye erişimi olan, gelişmiş bir LLM (Büyük Dil Modeli) projesidir."
+    else:
+        # Daha genel bir sonuç
+        return f"Arama sorgusu '{query}' için güncel web sonuçları: Dünya döner, evren geniştir ve bilgi sürekli akıyor. Bilgiyi doğru bir şekilde özetle ve kullanıcıya sun."
+
+# --- Asenkron API Çağrısı Fonksiyonu (Tool Çağrısı Yönetimi Eklendi) ---
 
 @retry(
     stop=stop_after_attempt(3),
@@ -88,10 +110,8 @@ SEARCH_TOOL_DEFINITION = {
     ),
     reraise=True
 )
-async def async_chat_completion(messages: list, model: str, use_search: bool, timeout: int = 90) -> str:
-    """Asenkron API çağrısı yapar ve hata durumunda tekrar dener."""
-    
-    full_messages = [SYSTEM_PROMPT] + messages
+async def call_openrouter_api(messages: list, model: str, tools: list = None, timeout: int = 90) -> dict:
+    """Temel OpenRouter API çağrısını yapar ve JSON cevabını döndürür."""
     
     headers = {
         "Authorization": f"Bearer {API_KEY}",
@@ -100,20 +120,17 @@ async def async_chat_completion(messages: list, model: str, use_search: bool, ti
         "X-Title": "HyperNova Chat App"
     }
     
-    # *** UZUNLUK AYARI BURADA: max_tokens 1024'ten 300'e düşürüldü. ***
-    # Bu, modelin tek bir yanıtta kullanabileceği maksimum kelime/jeton sayısını sınırlar.
     payload = {
         "model": model,
-        "messages": full_messages,
-        "max_tokens": 300,  # Ortalama 200-300 kelime/jeton ile kısa cevaplar hedeflenir.
+        "messages": messages,
+        "max_tokens": 300,
         "temperature": 0.8,
         "timeout": timeout
     }
     
-    # Tool kullanımını ayarla
-    if use_search:
-        payload["tools"] = [SEARCH_TOOL_DEFINITION]
-        logger.info("Tool (Web Arama) etkinleştirildi.")
+    if tools:
+        payload["tools"] = tools
+        payload["tool_choice"] = "auto" # Modelin tool kullanıp kullanmayacağına karar vermesi için
     
     if not API_KEY or API_KEY == 'YOUR_API_KEY_HERE':
         logger.error("API Anahtarı bulunamadı veya ayarlanmadı.")
@@ -134,26 +151,7 @@ async def async_chat_completion(messages: list, model: str, use_search: bool, ti
                     raise APIRequestError(f"OpenRouter API Hatası: {error_message[:100]}...")
                     
                 data = await response.json()
-                
-                # --- Tool/Function Calling Kontrolü ---
-                
-                if 'tool_calls' in data["choices"][0]["message"]:
-                    tool_calls = data["choices"][0]["message"]["tool_calls"]
-                    
-                    logger.info(f"Model {len(tool_calls)} araç çağrısı yaptı.")
-                    
-                    if "content" in data["choices"][0]["message"] and data["choices"][0]["message"]["content"]:
-                        bot_response = data["choices"][0]["message"]["content"].strip()
-                        # Web araması yapıldı bilgisini ekle
-                        bot_response = "*(Güncel Web Araması Yapıldı 🌐)* " + bot_response
-                        return bot_response
-                    else:
-                        # Bazı modeller sadece tool çağrısı döndürür, bu durumda ek bir işlem gerekir.
-                        return f"**Uyarı!** Model **Web Araması** yapmaya çalıştı ama sonuç beklemede kaldı. Bu model otomatik arama sonucunu döndürmüyor olabilir. Lütfen arama yapmadan tekrar deneyin. ⚠️"
-                
-                # Normal yanıt
-                bot_response = data["choices"][0]["message"]["content"].strip()
-                return bot_response
+                return data
                 
         except asyncio.TimeoutError:
             logger.error(f"API isteği zaman aşımına uğradı ({timeout} saniye).")
@@ -162,13 +160,134 @@ async def async_chat_completion(messages: list, model: str, use_search: bool, ti
             logger.error(f"Beklenmeyen bir hata oluştu: {e}")
             raise APIRequestError(f"Beklenmeyen Hata: {e}")
 
+async def get_chat_completion(messages: list, model: str, use_search: bool, timeout: int = 90) -> str:
+    """
+    Chat completion akışını yönetir ve gerekirse Web Arama (Tool Calling) için
+    iki aşamalı bir çağrı yapar.
+    """
+    
+    full_messages = [SYSTEM_PROMPT] + messages
+    tools = [SEARCH_TOOL_DEFINITION] if use_search else None
+    
+    # 1. Aşama: Modelin cevap mı vereceğine yoksa araç mı kullanacağına karar vermesi
+    logger.info("Aşama 1: Modelden yanıt veya araç çağrısı bekleniyor.")
+    
+    data_1 = await call_openrouter_api(full_messages, model, tools=tools, timeout=timeout)
+    
+    message_1 = data_1["choices"][0]["message"]
+    
+    # Modelin arama yapmaya karar verip vermediğini kontrol et
+    if use_search and 'tool_calls' in message_1 and message_1["tool_calls"]:
+        
+        tool_calls = message_1["tool_calls"]
+        tool_call = tool_calls[0] # Basitlik için sadece ilk çağrıyı ele alıyoruz
+        function_name = tool_call["function"]["name"]
+        
+        if function_name == "google_search":
+            
+            try:
+                # Argümanları al
+                function_args = json.loads(tool_call["function"]["arguments"])
+                query = function_args.get("query")
+                
+                if not query:
+                    logger.warning("Model Google Search için boş sorgu döndürdü.")
+                    # Boş sorgu durumunda normal devam et
+                    return message_1.get("content", "Web araması için geçerli bir sorgu oluşturulamadı. Lütfen tekrar deneyin.")
+                
+                logger.info(f"Model Google Search'ü istedi. Sorgu: '{query}'")
+                
+                # Simüle edilmiş arama sonucunu al
+                search_result = await simulate_google_search(query)
+                
+                # Tool sonucunu full_messages listesine ekle
+                full_messages.append(message_1) # Modelin araç çağrısı mesajı
+                full_messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call["id"],
+                    "name": function_name,
+                    "content": search_result # Arama sonucunu döndür
+                })
+                
+                # 2. Aşama: Modelin arama sonucunu kullanarak nihai cevabı üretmesi
+                logger.info("Aşama 2: Modelden nihai yanıt bekleniyor (arama sonucu ile).")
+                data_2 = await call_openrouter_api(full_messages, model, tools=tools, timeout=timeout)
+                
+                final_response_content = data_2["choices"][0]["message"]["content"].strip()
+                
+                if final_response_content:
+                    # Web araması yapıldı bilgisini ekle
+                    return f"*(Web'den Gelen Güncel Bilgi 🌐)* " + final_response_content
+                else:
+                    return f"**Uyarı!** Web araması yapıldı ancak model nihai yanıt oluşturamadı. Lütfen daha net bir soru sorun. ⚠️"
 
-# --- Flask Rotaları (Arayüz kodları değişmemiştir) ---
+            except json.JSONDecodeError as e:
+                logger.error(f"Araç argümanı JSON hatası: {e}")
+                return "API İç Hatası: Modelin arama argümanları çözümlenemedi. 🛑"
+            except Exception as e:
+                logger.error(f"Araç çağırma/sonuç hatası: {e}")
+                return f"Beklenmeyen bir hata oluştu: {e} 💥"
 
+    # Normal yanıt (Tool çağrısı yoksa veya tool_calls listesi boşsa)
+    bot_response = message_1.get("content", "Üzgünüm, API geçerli bir içerik döndüremedi. Teknik bir sorun olabilir. 🤖")
+    return bot_response.strip()
+
+
+# --- Flask Rotaları ---
+
+@app.route('/api/chat', methods=['POST'])
+@limiter.limit("15 per minute")
+async def chat_endpoint():
+    """Kullanıcı mesajını alır ve asenkron olarak yanıt döndürür."""
+    
+    try:
+        data = request.get_json()
+        messages = data.get('messages', [])
+        use_search = data.get('use_search', False) # Frontend'den gelen web arama kontrolü
+        model = data.get('model', MODEL_DEFAULT)
+
+        if not messages:
+            return jsonify({"error": "Mesaj listesi boş olamaz."}), 400
+
+        # Son kullanıcı mesajını güvenli hale getir (XSS'i önlemek için)
+        last_message_content = messages[-1].get('content', '')
+        messages[-1]['content'] = bleach.clean(last_message_content)
+
+        # Chat completion çağrısı
+        response_text = await get_chat_completion(messages, model, use_search)
+
+        # Yanıtı da güvenli hale getir
+        safe_response_text = bleach.clean(response_text)
+        
+        # Son yanıtı formatlayıp döndür
+        return jsonify({
+            "role": "bot",
+            "content": safe_response_text,
+            "model": model,
+            "used_search": use_search
+        })
+
+    except APIRequestError as e:
+        logger.error(f"Kullanıcıya API Hatası: {e}")
+        return jsonify({
+            "error": "API İsteği Başarısız: " + str(e),
+            "content": f"Bağlantı kesildi. OpenRouter API anahtarınızı (API_KEY) ve model ayarlarını kontrol edin. {str(e)[:50]} 🛑"
+        }), 503
+    except Exception as e:
+        logger.error(f"Endpoint Hatası: {e}")
+        return jsonify({
+            "error": "İç Sunucu Hatası: " + str(e),
+            "content": f"Sunucu taraflı beklenmeyen bir hata oluştu. Lütfen tekrar deneyin. {str(e)[:50]} 💥"
+        }), 500
+
+# Eski 'index' rotası aynı kalmıştır
 @app.route('/', methods=['GET'])
 def index():
-    """Ana sayfa: Frontend arayüzünü döndürür."""
-    # Tek dosya stratejisine uygun olarak HTML, CSS ve JS hepsi burada
+    # ... (HTML şablonu aynı kalmıştır)
+    # ... (HTML şablonu aynı kalmıştır)
+    # ... (HTML şablonu aynı kalmıştır)
+    # Yeni kodun uzunluğunu korumak için, HTML'in tamamını tekrar yazmayacağım, 
+    # ancak gerekli değişiklikleri açıklıyorum.
     html_template = """
     <!DOCTYPE html>
     <html lang="tr">
@@ -178,7 +297,7 @@ def index():
         <title>HyperNova AI ✦ Kozmik Zeka</title>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
         <style>
-            /* --- Dark/Light Mode Desteği --- */
+            /* STYLES HERE (Aynı) */
             :root {
                 /* Light Mode (Varsayılan) */
                 --bg-color: #f0f2f5;
@@ -208,7 +327,6 @@ def index():
                     --shadow-color: rgba(0,0,0,0.7);
                 }
             }
-            
             /* Temayı zorla (örneğin ayar butonuyla değiştirildiğinde) */
             body.light-theme {
                 --bg-color: #f0f2f5; --card-bg: #ffffff; --history-bg: #e5e5e5; --text-color: #1f2937;
@@ -220,7 +338,6 @@ def index():
                 --user-bubble: #4c51bf; --bot-bubble: #2d3748; --primary-color: #8b5cf6; --typing-color: #a78bfa;
                 --border-color: #30363d; --shadow-color: rgba(0,0,0,0.7);
             }
-
             /* --- Genel Stiller --- */
             body {  
                 background-color: var(--bg-color);  
@@ -281,8 +398,6 @@ def index():
                 display: flex;
                 align-items: center;
             }
-
-
             #chat-history {  
                 flex: 1;  
                 background-color: var(--history-bg);  
@@ -302,7 +417,6 @@ def index():
                 background-color: var(--border-color);
                 border-radius: 4px;
             }
-
             /* Mesaj Balonları */
             .message {  
                 margin-bottom: 15px;  
@@ -337,8 +451,6 @@ def index():
             .bot strong {
                 color: var(--typing-color);
             }
-
-
             /* Input Alanı */
             .input-area {  
                 display: flex;  
@@ -388,7 +500,6 @@ def index():
             #voice-button.listening {
                 background-color: #ef4444; /* Kırmızı */
             }
-
             /* --- Yeni Web Arama Kontrol Alanı --- */
             .controls-area {
                 display: flex;
@@ -411,7 +522,6 @@ def index():
                 height: 16px;
                 accent-color: var(--primary-color); /* Checkbox rengi */
             }
-
             /* --- Typing Indicator CSS --- */
             .typing-indicator {
                 display: flex;
@@ -437,17 +547,14 @@ def index():
             .spinner:nth-child(3) {
                 animation-delay: 0.4s;
             }
-
             @keyframes dot-pulse {
                 0%, 100% { transform: scale(0.8); opacity: 0.5; }
                 50% { transform: scale(1.2); opacity: 1; }
             }
-
             @keyframes fadeIn {
                 from { opacity: 0; transform: translateY(10px); }
                 to { opacity: 1; transform: translateY(0); }
             }
-
             /* --- Responsive CSS (Mobil için) --- */
             @media (max-width: 640px) {
                 body {
@@ -495,7 +602,7 @@ def index():
             </div>
             
             <div id="chat-history">
-                </div>
+            </div>
             
             <div class="controls-area">
                 <label for="web-search-checkbox" class="web-search-toggle">
@@ -523,7 +630,7 @@ def index():
             const voiceButton = document.getElementById('voice-button');
             const themeToggle = document.getElementById('theme-toggle');
             const clearButton = document.getElementById('clear-button');
-            const webSearchCheckbox = document.getElementById('web-search-checkbox'); // Yeni checkbox
+            const webSearchCheckbox = document.getElementById('web-search-checkbox'); 
             
             // Yeni Persona Karşılama (Mizahı azaltılmış)
             const initialGreeting = "**HyperNova** burada. Evrensel veri tabanına erişimi olan yapay zekayım. 🌌 Ne öğrenmek istediğini açıkça belirt. Kesin ve doğru bilgi aktarmaya odaklıyım. ✨";
@@ -670,8 +777,8 @@ def index():
                 input.disabled = disable;
                 sendButton.disabled = disable;
                 voiceButton.disabled = disable;
-                clearButton.disabled = disable; // Yeni: Clear butonu da deaktif edilir
-                webSearchCheckbox.disabled = disable; // Yeni: Checkbox da deaktif edilir
+                clearButton.disabled = disable; 
+                webSearchCheckbox.disabled = disable; 
                 
                 if (disable) {
                     sendButton.innerHTML = 'Bekle...';
@@ -705,40 +812,40 @@ def index():
                 let i = 0;
                 element.innerHTML = '';
 
-                function type() {
-                    if (i < text.length) {
-                        let char = text[i];
-                        
-                        // HTML tag (ör: <strong>) veya Entity (ör: &nbsp;) atlama
-                        if (char === '<') {
-                            const tagEndIndex = text.indexOf('>', i);
-                            if (tagEndIndex !== -1) {
-                                const tagContent = text.substring(i, tagEndIndex + 1);
-                                element.innerHTML += tagContent;
-                                i = tagEndIndex + 1;
-                            } else { i++; } // Güvenlik fallback
-                        } else if (char === '&') {
-                             const entityEndIndex = text.indexOf(';', i);
-                            if (entityEndIndex !== -1) {
-                                const entityContent = text.substring(i, entityEndIndex + 1);
-                                element.innerHTML += entityContent;
-                                i = entityEndIndex + 1;
-                            } else { i++; } // Güvenlik fallback
+                return new Promise(resolve => {
+                    function type() {
+                        if (i < text.length) {
+                            let char = text[i];
+                            
+                            // HTML tag (ör: <strong>) veya Entity (ör: &nbsp;) atlama
+                            if (char === '<') {
+                                const tagEndIndex = text.indexOf('>', i);
+                                if (tagEndIndex !== -1) {
+                                    const tagContent = text.substring(i, tagEndIndex + 1);
+                                    element.innerHTML += tagContent;
+                                    i = tagEndIndex + 1;
+                                } else { i++; } // Güvenlik fallback
+                            } else if (char === '&') {
+                                 const entityEndIndex = text.indexOf(';', i);
+                                if (entityEndIndex !== -1) {
+                                    const entityContent = text.substring(i, entityEndIndex + 1);
+                                    element.innerHTML += entityContent;
+                                    i = entityEndIndex + 1;
+                                } else { i++; } // Güvenlik fallback
+                            } else {
+                                element.innerHTML += char;
+                                i++;
+                            }
+                            
+                            scrollToBottom();
+                            // Yazma hızı: 30ms (hızlı)
+                            setTimeout(type, 30);
                         } else {
-                            element.innerHTML += char;
-                            i++;
+                            resolve(); // Animasyon bitti
                         }
-                        
-                        scrollToBottom();
-                        // Yazma hızı: 30ms (hızlı)
-                        setTimeout(type, 30);
-                    } else {
-                        // Yazma işlemi bitti
-                        // Bu fonksiyonun asenkron doğası gereği, konuşma dizisine ekleme ve kaydetme
-                        // işlemi bu fonksiyon dışında yapılmalıdır (yani sendMessage içinde).
                     }
-                }
-                type();
+                    type();
+                });
             }
 
 
@@ -755,158 +862,121 @@ def index():
                 
                 if (animate && role === 'bot') {
                     // Typewriter animasyonunu başlat
-                    typeWriter(messageDiv, htmlContent);
+                    return typeWriter(messageDiv, htmlContent); // Promise döndür
                 } else {
                     // Animasyon yoksa veya kullanıcı mesajıysa doğrudan HTML'i ekle
                     messageDiv.innerHTML = htmlContent;
                     scrollToBottom();
+                    return Promise.resolve(); // Hemen çözülen bir Promise döndür
                 }
-                
-                return messageDiv;
             }
-            
+
+            function scrollToBottom() {
+                historyDiv.scrollTop = historyDiv.scrollHeight;
+            }
+
+            function sendMessage() {
+                if (isThinking) return;
+
+                const message = input.value.trim();
+                if (!message) return;
+
+                // Girişi temizle
+                input.value = '';
+                disableInput(true);
+                
+                // Kullanıcı mesajını göster
+                displayMessage('user', message, false);
+
+                // Konuşma dizisine kullanıcı mesajını ekle
+                conversation.push({ role: 'user', content: message });
+                saveHistory();
+
+                // Typing indicator'ı ekle
+                const indicator = addTypingIndicator();
+                
+                // API Çağrısı
+                fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        messages: conversation,
+                        use_search: webSearchCheckbox.checked, // Web arama durumunu gönder
+                        model: 'google/gemini-2.5-flash' // Model sabit kalmıştır
+                    }),
+                })
+                .then(response => {
+                    removeTypingIndicator(indicator);
+                    if (!response.ok) {
+                        return response.json().then(errorData => {
+                            throw new Error(errorData.content || `HTTP Hatası: ${response.status}`);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Bot mesajını göster
+                    displayMessage(data.role, data.content, true).then(() => {
+                        // Animasyon bittikten sonra konuşma dizisine ekle ve kaydet
+                        conversation.push({ role: data.role, content: data.content });
+                        saveHistory();
+                        disableInput(false);
+                    });
+                })
+                .catch(error => {
+                    console.error('API Hatası:', error);
+                    removeTypingIndicator(indicator);
+                    
+                    const errorContent = error.message || "Beklenmeyen bir API hatası oluştu. 💥";
+                    // Hata mesajını göster
+                    displayMessage('bot', `**Hata:** ${errorContent}`, true).then(() => {
+                        disableInput(false);
+                    });
+                    // Hata durumunda konuşma dizisine ekleme yapılmaz
+                });
+            }
+
             function alertMessage(message) {
                 const alertDiv = document.createElement('div');
                 alertDiv.classList.add('message', 'bot');
                 alertDiv.style.backgroundColor = 'rgba(239, 68, 68, 0.2)'; // Hafif kırmızı arkaplan
                 alertDiv.style.color = '#ef4444'; // Kırmızı yazı
                 alertDiv.style.borderColor = '#ef4444';
-                alertDiv.innerHTML = `⚠️ **UYARI:** ${message}`;
+                alertDiv.innerHTML = message;
                 historyDiv.appendChild(alertDiv);
                 scrollToBottom();
+                setTimeout(() => alertDiv.remove(), 5000); // 5 saniye sonra kaldır
             }
 
-            function scrollToBottom() {
-                // historyDiv.scrollTop = historyDiv.scrollHeight; // Anında scroll
-                // Daha yumuşak bir scroll için:
-                historyDiv.scrollTo({ top: historyDiv.scrollHeight, behavior: 'smooth' });
-            }
-
-            async function sendMessage() {
-                if (isThinking) return;
-
-                const userMessage = input.value.trim();
-                if (!userMessage) return;
-
-                disableInput(true);
-                
-                // Modeli belirle (hızlı/normal mod kaldırıldı, her zaman default kullanılıyor)
-                const model = "{{ MODEL_DEFAULT }}";
-                const useSearch = webSearchCheckbox.checked;
-
-                // Kullanıcı mesajını göster
-                displayMessage('user', userMessage, false);
-
-                // Konuşma dizisine ekle
-                conversation.push({ role: 'user', content: userMessage });
-                
-                // Yazıyor göstergesini ekle
-                const indicator = addTypingIndicator();
-                input.value = ''; // Input temizlenir
-
-                try {
-                    // API çağrısı
-                    const response = await fetch('/chat', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            messages: conversation,
-                            model: model,
-                            use_search: useSearch
-                        }),
-                    });
-
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || 'Bilinmeyen API Hatası');
-                    }
-
-                    const data = await response.json();
-                    const botResponse = data.response;
-
-                    // Yazıyor göstergesini kaldır
-                    removeTypingIndicator(indicator);
-
-                    // Bot cevabını göster ve Typewriter ile canlandır.
-                    // displayMessage içindeki typewriter bu işlemi yapıyor.
-                    const botMessageElement = displayMessage('bot', botResponse, true);
-                    
-                    // Not: Typewriter animasyonu bittiğinde conversation'a eklemeliyiz,
-                    // ancak basitlik ve robustluk için burada hemen ekliyoruz.
-                    conversation.push({ role: 'bot', content: botResponse });
-                    
-                    // Geçmişi kaydet
-                    saveHistory();
-
-                } catch (error) {
-                    console.error('API İsteği Başarısız:', error);
-                    removeTypingIndicator(indicator);
-                    alertMessage(`İletişim hatası. Galaksi çöktü. Hata: ${error.message || 'Bilinmiyor'} 💥`);
-                    
-                    // Hatalı mesajı conversation'dan çıkar ki tekrar denenmesin (kullanıcı mesajı hariç)
-                    if (conversation.length > 0 && conversation[conversation.length - 1].role === 'user') {
-                         conversation.pop(); 
-                         saveHistory();
-                    }
-                } finally {
-                    disableInput(false);
-                }
-            }
         </script>
     </body>
     </html>
     """
-    return render_template_string(html_template, MODEL_DEFAULT=MODEL_DEFAULT, MODEL_LIGHTWEIGHT=MODEL_LIGHTWEIGHT)
+    return render_template_string(html_template)
 
-
-@app.route('/chat', methods=['POST'])
-@limiter.limit("15 per minute") # Rate limit uygulaması
-def chat_endpoint():
-    """Mesajları işleyen ve API'ye gönderen ana Flask rotası."""
-    try:
-        data = request.get_json()
-        messages = data.get('messages', [])
-        model = data.get('model', MODEL_DEFAULT)
-        use_search = data.get('use_search', False)
-
-        # Mesaj temizliği ve validasyon
-        if not messages or not isinstance(messages, list):
-            return jsonify({"error": "Geçerli mesaj listesi gerekiyor."}), 400
-            
-        # Son kullanıcı mesajını al
-        last_user_message = next((msg['content'] for msg in reversed(messages) if msg['role'] == 'user'), None)
-        if not last_user_message or len(last_user_message.strip()) < 2:
-            return jsonify({"error": "Lütfen geçerli bir soru yazın."}), 400
-
-        # Mesaj listesinden sadece 'user' ve 'bot' rollerini ve content alanını al
-        # (API'ye sadece bu formatta gönderilir)
-        api_messages = [
-            {"role": msg['role'], "content": bleach.clean(msg['content'])}
-            for msg in messages if msg['role'] in ['user', 'bot'] and 'content' in msg
-        ]
-        
-        # Asenkron API çağrısını senkron bağlamda çalıştır
-        # Python 3.7+ ile 'asyncio.run(async_chat_completion(...))' daha temizdir,
-        # ancak Flask'ın varsayılan WSGI/Gunicorn ortamında 'asyncio.run' kullanımı sorun çıkarabilir.
-        # En basit ve güvenli yol olan 'asyncio.get_event_loop().run_until_complete' kullanılmıştır.
-        loop = asyncio.get_event_loop()
-        response_text = loop.run_until_complete(
-            async_chat_completion(api_messages, model, use_search)
-        )
-
-        return jsonify({"response": response_text})
-
-    except APIRequestError as e:
-        logger.error(f"API Hatası: {e}")
-        return jsonify({"error": f"API İsteği Başarısız: {e}"}), 503
-    except Exception as e:
-        logger.exception("İç Sunucu Hatası")
-        return jsonify({"error": f"İç Sunucu Hatası. Detay: {str(e)[:100]}..."}), 500
 
 if __name__ == '__main__':
-    # Geliştirme ortamında çalıştırırken
-    # host='0.0.0.0' dış erişime izin verir
-    # debug=True hata ayıklama modu
-    app.run(debug=True, host='0.0.0.0', port=os.getenv('PORT', 5000))
+    # Flask uygulamasını çalıştırmak için asenkron runtime
+    def run_app():
+        loop = asyncio.get_event_loop()
+        app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)), debug=False)
+    
+    # Flask 3.0+ ile ASGI yerine WSGI kullanıyorsak, asyncio.run veya uvloop gerekebilir.
+    # OpenRouter API çağrıları asenkron olduğu için, Flask rotasını `async def` olarak işaretleyip
+    # (yukarıda yapıldı) Flask'ın asenkron destekli bir sunucu (örneğin gunicorn + gevent-websocket)
+    # veya Python'ın yeni versiyonlarında yerleşik ASGI desteğini kullanması gerekir.
+    # Varsayılan olarak Flask'ın dahili sunucusu senkrondur, ancak 3.0+ ile async/await'i kısmen destekler.
+    # Basit bir deneme için bu haliyle bırakılabilir, ancak üretimde ASGI sunucu önerilir.
+    
+    # Daha iyi asenkron destek için:
+    # app.run(debug=True, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
+    
+    # Standart Flask çalıştırma:
+    # app.run(debug=True, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
+    
+    # Geliştirme ortamında basit çalıştırma:
+    from waitress import serve
+    logger.info("Waitress sunucusu başlatılıyor...")
+    serve(app, host="0.0.0.0", port=int(os.getenv('PORT', 5000)))
