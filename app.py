@@ -26,7 +26,7 @@ API_URL = "https://openrouter.ai/api/v1/chat/completions"
 DATABASE_URL = os.getenv('DATABASE_URL')  # Supabase bağlantı string'i
 
 # Modeller
-MODEL_DEFAULT = "alibaba/tongyi-deepresearch-30b-a3b:free"  # Varsayılan: Hızlı model
+MODEL_DEFAULT = "meituan/longcat-flash-chat:free"  # Varsayılan: Hızlı model
 
 # --- UI ÇEVİRİLERİ ---
 UI_TRANSLATIONS = {
