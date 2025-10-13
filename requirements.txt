@@ -4,4 +4,5 @@ tenacity
 flask-limiter
 flask-cors
 bleach
+psycopg2-binary  # Bu PostgreSQL driver'ı
 gunicorn
