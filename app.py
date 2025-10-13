@@ -23,7 +23,7 @@ API_KEY = os.getenv('API_KEY', 'sk-or-v1-aea5234783dedc64fab1a239d62cb296056b37c
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Modeller
-MODEL_DEFAULT = "google/gemini-2.5-flash"  # Varsayılan: Hızlı model
+MODEL_DEFAULT = "meituan/longcat-flash-chat:free"  # Varsayılan: Hızlı model
 
 # --- UI ÇEVİRİLERİ ---
 UI_TRANSLATIONS = {
