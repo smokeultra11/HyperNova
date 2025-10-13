@@ -147,14 +147,14 @@ DEFAULT_PERSONA = "hypernova"
 # --- VERİTABANI BAĞLANTISI (Supabase/PostgreSQL) ---
 # *** DEĞİŞİKLİK: get_db_connection() fonksiyonunu init_db()'den ÖNCE tanımla ***
 def get_db_connection():
-    """DB bağlantısı döndürür."""
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL bulunamadı!")
     
-    # Connection string'i parse et (psycopg2 için)
     url = urlparse(DATABASE_URL)
+    logger.info(f"DB Bağlantı Detayları: Host={url.hostname}, Port={url.port}, User={url.username}, DB={url.path[1:]}")  # Debug log
+    
     conn = psycopg2.connect(
-        database=url.path[1:],  # /postgres'i al
+        database=url.path[1:],
         user=url.username,
         password=url.password,
         host=url.hostname,
