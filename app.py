@@ -7,7 +7,9 @@ import bleach
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional, Dict
-import sqlite3
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from urllib.parse import urlparse
 from flask import Flask, request, jsonify, render_template_string, make_response, redirect, url_for
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -21,6 +23,7 @@ logger = logging.getLogger(__name__)
 # --- Yapılandırma ---
 API_KEY = os.getenv('API_KEY', 'Your API')
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
+DATABASE_URL = os.getenv('DATABASE_URL')  # Supabase bağlantı string'i
 
 # Modeller
 MODEL_DEFAULT = "alibaba/tongyi-deepresearch-30b-a3b:free"  # Varsayılan: Hızlı model
@@ -141,18 +144,19 @@ SYSTEM_PROMPTS_TR = {
 
 DEFAULT_PERSONA = "hypernova"
 
-# --- VERİTABANI BAĞLANTISI (SQLite - Kalıcı Depolama) ---
-DB_PATH = 'hypernova.db'
-
+# --- VERİTABANI BAĞLANTISI (Supabase/PostgreSQL) ---
 def init_db():
     """Veritabanını başlatır ve tabloları oluşturur."""
-    conn = sqlite3.connect(DB_PATH)
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL environment variable'ı ayarlanmadı!")
+    
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     # Kullanıcılar tablosu
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             premium_until TIMESTAMP NOT NULL
@@ -166,14 +170,15 @@ def init_db():
             user_id INTEGER NOT NULL,
             name TEXT NOT NULL,
             messages TEXT NOT NULL,  -- JSON string
-            last_updated TIMESTAMP NOT NULL,
+            last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
     
     conn.commit()
+    cursor.close()
     conn.close()
-    logger.info("Veritabanı başlatıldı.")
+    logger.info("Supabase veritabanı başlatıldı.")
 
 # Başlangıçta DB'yi başlat
 init_db()
@@ -206,16 +211,28 @@ limiter = Limiter(
 
 def get_db_connection():
     """DB bağlantısı döndürür."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # Dict-like rows için
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL bulunamadı!")
+    
+    # Connection string'i parse et (psycopg2 için)
+    url = urlparse(DATABASE_URL)
+    conn = psycopg2.connect(
+        database=url.path[1:],  # /postgres'i al
+        user=url.username,
+        password=url.password,
+        host=url.hostname,
+        port=url.port
+    )
+    conn.cursor_factory = RealDictCursor  # Dict-like rows için
     return conn
 
 def get_user_id(username: str) -> Optional[int]:
     """Kullanıcı ID'sini döndürür."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
+    cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
     row = cursor.fetchone()
+    cursor.close()
     conn.close()
     return row['id'] if row else None
 
@@ -230,9 +247,10 @@ def is_user_premium(username: str) -> bool:
     cursor = conn.cursor()
     cursor.execute("""
         SELECT premium_until FROM users 
-        WHERE username = ? AND premium_until > datetime('now')
+        WHERE username = %s AND premium_until > NOW()
     """, (username,))
     row = cursor.fetchone()
+    cursor.close()
     conn.close()
     return bool(row)
 
@@ -240,11 +258,12 @@ def get_premium_until(username: str) -> Optional[datetime]:
     """Premium bitiş tarihini döndürür."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT premium_until FROM users WHERE username = ?", (username,))
+    cursor.execute("SELECT premium_until FROM users WHERE username = %s", (username,))
     row = cursor.fetchone()
+    cursor.close()
     conn.close()
     if row:
-        return datetime.fromisoformat(row['premium_until'])
+        return datetime.fromisoformat(row['premium_until'].isoformat())
     return None
 
 def create_user(username: str, password: str):
@@ -254,21 +273,23 @@ def create_user(username: str, password: str):
     try:
         cursor.execute("""
             INSERT INTO users (username, password, premium_until) 
-            VALUES (?, ?, datetime('now'))
+            VALUES (%s, %s, NOW())
         """, (username, password))
         conn.commit()
         return True
-    except sqlite3.IntegrityError:
+    except psycopg2.IntegrityError:
         return False
     finally:
+        cursor.close()
         conn.close()
 
 def authenticate_user(username: str, password: str) -> bool:
     """Kullanıcıyı doğrular."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
+    cursor.execute("SELECT password FROM users WHERE username = %s", (username,))
     row = cursor.fetchone()
+    cursor.close()
     conn.close()
     return row and row['password'] == password
 
@@ -282,9 +303,10 @@ def grant_premium(username: str, days: int = 30):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        UPDATE users SET premium_until = ? WHERE username = ?
-    """, (new_expiry.isoformat(), username))
+        UPDATE users SET premium_until = %s WHERE username = %s
+    """, (new_expiry, username))
     conn.commit()
+    cursor.close()
     conn.close()
     return cursor.rowcount > 0
 
@@ -299,9 +321,10 @@ def save_chat(username: str, chat_name: str, messages: list) -> str:
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO chats (id, user_id, name, messages, last_updated)
-        VALUES (?, ?, ?, ?, datetime('now'))
+        VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
     """, (chat_id, user_id, chat_name, json.dumps(messages)))
     conn.commit()
+    cursor.close()
     conn.close()
     return chat_id
 
@@ -316,10 +339,11 @@ def get_user_chats(username: str) -> list:
     cursor.execute("""
         SELECT id, name, messages, last_updated 
         FROM chats 
-        WHERE user_id = ? AND last_updated > datetime('now', '-20 days')
+        WHERE user_id = %s AND last_updated > NOW() - INTERVAL '20 days'
         ORDER BY last_updated DESC
     """, (user_id,))
     rows = cursor.fetchall()
+    cursor.close()
     conn.close()
     
     chats = []
@@ -328,7 +352,7 @@ def get_user_chats(username: str) -> list:
             'id': row['id'],
             'name': row['name'],
             'messages': json.loads(row['messages']),
-            'last_updated': row['last_updated']
+            'last_updated': row['last_updated'].isoformat()
         })
     return chats
 
@@ -343,9 +367,10 @@ def load_chat(username: str, chat_id: str) -> Optional[Dict]:
     cursor.execute("""
         SELECT name, messages, last_updated 
         FROM chats 
-        WHERE id = ? AND user_id = ?
+        WHERE id = %s AND user_id = %s
     """, (chat_id, user_id))
     row = cursor.fetchone()
+    cursor.close()
     conn.close()
     
     if row:
@@ -353,7 +378,7 @@ def load_chat(username: str, chat_id: str) -> Optional[Dict]:
             'id': chat_id,
             'name': row['name'],
             'messages': json.loads(row['messages']),
-            'last_updated': row['last_updated']
+            'last_updated': row['last_updated'].isoformat()
         }
     return None
 
@@ -366,9 +391,10 @@ def delete_chat(username: str, chat_id: str) -> bool:
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        DELETE FROM chats WHERE id = ? AND user_id = ?
+        DELETE FROM chats WHERE id = %s AND user_id = %s
     """, (chat_id, user_id))
     conn.commit()
+    cursor.close()
     conn.close()
     return cursor.rowcount > 0
 
@@ -726,6 +752,7 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
         SELECT username, premium_until FROM users ORDER BY premium_until DESC
     """)
     rows = cursor.fetchall()
+    cursor.close()
     conn.close()
 
     user_list_html = ""
@@ -734,7 +761,7 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
         is_premium_active = is_user_premium(username)
         status_text = "AKTİF" if is_premium_active else "PASİF"
         status_color = "color: green;" if is_premium_active else "color: red;"
-        expiry_date = row['premium_until']
+        expiry_date = row['premium_until'].isoformat()
 
         user_list_html += f"""
         <tr>
@@ -2382,14 +2409,15 @@ if __name__ == '__main__':
     # Geliştirici kullanıcısını önceden kaydet (DB'ye)
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id FROM users WHERE username = ?", (DEVELOPER_USERNAME,))
+    cursor.execute("SELECT id FROM users WHERE username = %s", (DEVELOPER_USERNAME,))
     if not cursor.fetchone():
         cursor.execute("""
             INSERT INTO users (username, password, premium_until) 
-            VALUES (?, ?, datetime('now', '+9999 days'))
+            VALUES (%s, %s, NOW() + INTERVAL '9999 days')
         """, (DEVELOPER_USERNAME, DEVELOPER_PASSWORD))
         conn.commit()
         logger.info(f"Geliştirici kullanıcısı '{DEVELOPER_USERNAME}' sisteme eklendi.")
+    cursor.close()
     conn.close()
 
     app.run(debug=True, host='0.0.0.0', port=5000)
