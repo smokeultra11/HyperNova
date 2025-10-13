@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # --- Yapılandırma ---
-API_KEY = os.getenv('API_KEY', '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')
+API_KEY = os.getenv('API_KEY', 'YOUR_API_KEY_HERE')
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Modeller
