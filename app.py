@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # --- Yapılandırma ---
 API_KEY = os.getenv('API_KEY', 'Your API')
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
-DATABASE_URL = os.getenv('DATABASE_URL')  # Supabase bağlantı string'i
+DATABASE_URL = os.getenv('postgresql://postgres.tuctxjhqrzuiwrlzhgpn:*N.J.ULCeh8eq5k@aws-1-eu-west-1.pooler.supabase.com:6543/postgres')  # Supabase bağlantı string'i
 
 # Modeller
 MODEL_DEFAULT = "alibaba/tongyi-deepresearch-30b-a3b:free"  # Varsayılan: Hızlı model
