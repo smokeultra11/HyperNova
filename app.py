@@ -23,7 +23,7 @@ API_KEY = os.getenv('API_KEY', 'Your API')
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Modeller
-MODEL_DEFAULT = "deepseek/deepseek-v3-1:free"  # Varsayılan: Hızlı model
+MODEL_DEFAULT = "alibaba/tongyi-deepresearch-30b-a3b:free"  # Varsayılan: Hızlı model
 
 # --- UI ÇEVİRİLERİ ---
 UI_TRANSLATIONS = {
