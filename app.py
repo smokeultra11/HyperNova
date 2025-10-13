@@ -23,7 +23,7 @@ API_KEY = os.getenv('API_KEY', 'Your API')
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 DATABASE_URL = os.getenv('DATABASE_URL')
 
-MODEL_DEFAULT = "z-ai/glm-4.5-air:free"
+MODEL_DEFAULT = "meituan/longcat-flash-chat:free"
 
 UI_TRANSLATIONS = {
     'en': {
