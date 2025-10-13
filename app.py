@@ -145,6 +145,24 @@ SYSTEM_PROMPTS_TR = {
 DEFAULT_PERSONA = "hypernova"
 
 # --- VERİTABANI BAĞLANTISI (Supabase/PostgreSQL) ---
+# *** DEĞİŞİKLİK: get_db_connection() fonksiyonunu init_db()'den ÖNCE tanımla ***
+def get_db_connection():
+    """DB bağlantısı döndürür."""
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL bulunamadı!")
+    
+    # Connection string'i parse et (psycopg2 için)
+    url = urlparse(DATABASE_URL)
+    conn = psycopg2.connect(
+        database=url.path[1:],  # /postgres'i al
+        user=url.username,
+        password=url.password,
+        host=url.hostname,
+        port=url.port
+    )
+    conn.cursor_factory = RealDictCursor  # Dict-like rows için
+    return conn
+
 def init_db():
     """Veritabanını başlatır ve tabloları oluşturur."""
     if not DATABASE_URL:
@@ -208,23 +226,6 @@ limiter = Limiter(
 )
 
 # --- YARDIMCI FONKSİYONLAR (DB İşlemleri) ---
-
-def get_db_connection():
-    """DB bağlantısı döndürür."""
-    if not DATABASE_URL:
-        raise ValueError("DATABASE_URL bulunamadı!")
-    
-    # Connection string'i parse et (psycopg2 için)
-    url = urlparse(DATABASE_URL)
-    conn = psycopg2.connect(
-        database=url.path[1:],  # /postgres'i al
-        user=url.username,
-        password=url.password,
-        host=url.hostname,
-        port=url.port
-    )
-    conn.cursor_factory = RealDictCursor  # Dict-like rows için
-    return conn
 
 def get_user_id(username: str) -> Optional[int]:
     """Kullanıcı ID'sini döndürür."""
@@ -844,6 +845,7 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
 def index():
     """Ana sayfa: Frontend arayüzünü döndürür."""
     # HTML, CSS ve JS kodları aşağıdadır... (Frontend güncellendi: API çağrıları ile sohbet yönetimi)
+    # *** DEĞİŞİKLİK: JS regex'inde backslash'leri escape et (Python string'i için) ***
     html_template = """
     <!DOCTYPE html>
     <html lang="en">
@@ -1757,12 +1759,12 @@ def index():
 
             // --- Markdown Parser (YENİ: Kalın ve italik için basit parser) ---
             function parseMarkdown(text) {
-                // **kalın** -> <strong>kalın</strong>
-                text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                // **kalın** -> <strong>kalın</strong>  *** DEĞİŞİKLİK: Backslash'leri escape et ***
+                text = text.replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>');
                 // *italik* -> <em>italik</em>
-                text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                text = text.replace(/\\*(.*?)\\*/g, '<em>$1</em>');
                 // [metin](url) -> <a href="url">metin</a>
-                text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+                text = text.replace(/\\[(.*?)\\]\\((.*?)\\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
                 return text;
             }
 
