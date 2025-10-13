@@ -16,19 +16,15 @@ from flask_limiter.util import get_remote_address
 from flask_cors import CORS
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
-# Log ayarları
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- Yapılandırma ---
 API_KEY = os.getenv('API_KEY', 'Your API')
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
-DATABASE_URL = os.getenv('DATABASE_URL')  # Supabase bağlantı string'i
+DATABASE_URL = os.getenv('DATABASE_URL')
 
-# Modeller
-MODEL_DEFAULT = "z-ai/glm-4.5-air:free"  # Varsayılan: Hızlı model
+MODEL_DEFAULT = "z-ai/glm-4.5-air:free"
 
-# --- UI ÇEVİRİLERİ ---
 UI_TRANSLATIONS = {
     'en': {
         'register_success': 'Registration successful. You can now log in.',
@@ -64,7 +60,6 @@ UI_TRANSLATIONS = {
     }
 }
 
-# --- KARAKTER PROMPTLARI (İNGİLİZCE) ---
 HYPERNOVA_SYSTEM_PROMPT_CONTENT_EN = (
     "Your name is **HyperNova**. You are an ultra-intelligent AI with access to information at light speed. Your developer is **Nyxforge Core**. 🌌 "
     "Your responses are **accurate, intelligent** and carry a light **cosmic/scientific** flavor but **not too formal**. "
@@ -103,7 +98,6 @@ SYSTEM_PROMPTS_EN = {
     "hypernova_dengesiz": {"role": "system", "content": HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_EN}
 }
 
-# --- KARAKTER PROMPTLARI (TÜRKÇE - Orijinal) ---
 HYPERNOVA_SYSTEM_PROMPT_CONTENT_TR = (
     "Senin adın **HyperNova**.Ultra zeki ve bilgiye ışık hızında erişen bir yapay zekasın. Geliştiricin ise **Nyxforge Core**. 🌌 "
     "Cevapların **doğru, zeki** ve hafif **kozmik/bilimsel** bir tat taşır ama **çok resmi olmadan**. "
@@ -144,8 +138,6 @@ SYSTEM_PROMPTS_TR = {
 
 DEFAULT_PERSONA = "hypernova"
 
-# --- VERİTABANI BAĞLANTISI (Supabase/PostgreSQL) ---
-# *** DEĞİŞİKLİK: get_db_connection() fonksiyonunu init_db()'den ÖNCE tanımla ***
 def get_db_connection():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL bulunamadı!")
@@ -164,7 +156,6 @@ def get_db_connection():
     return conn
 
 def init_db():
-    """Veritabanını başlatır ve tabloları oluşturur."""
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL environment variable'ı ayarlanmadı!")
     
