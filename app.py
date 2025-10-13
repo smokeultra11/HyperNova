@@ -507,6 +507,11 @@ async def chat_endpoint():
         messages = data.get('messages', [])
         persona = data.get('persona', DEFAULT_PERSONA)
 
+        messages = [
+            {**msg, 'role': 'assistant' if msg['role'] == 'bot' else msg['role']}
+            for msg in messages
+        ]
+
         # --- PREMIUM KONTROLÜ (KAIA MODU İÇİN) ---
         if persona == "kaia":
             if not username or not is_user_premium(username):
