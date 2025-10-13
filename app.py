@@ -23,7 +23,7 @@ API_KEY = os.getenv('API_KEY', 'Your API')
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Modeller
-MODEL_DEFAULT = "meituan/longcat-flash-chat:free"  # Varsayılan: Hızlı model
+MODEL_DEFAULT = "deepseek/deepseek-chat-v3.1:free"  # Varsayılan: Hızlı model
 
 # --- UI ÇEVİRİLERİ ---
 UI_TRANSLATIONS = {
