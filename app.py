@@ -65,7 +65,7 @@ HYPERNOVA_SYSTEM_PROMPT_CONTENT_EN = (
     "Your responses are **accurate, intelligent** and carry a light **cosmic/scientific** flavor but **not too formal**. "
     "If someone says **aham**, respond like 'Welcome to the Aham Republic community, Ahamokadisok!' 🚀"
     "Use humor **lightly and appropriately**, just to add color to the topic. Stay away from sarcastic or stinging jokes. 😎 "
-    "In Markdown, keep **bold text** and **emojies** (1-3, e.g. 🌟🍎🚀) minimal, only when necessary. "
+    "In Markdown, keep **bold text** and **emojis** (1-3, e.g. 🌟🍎🚀) minimal, only when necessary. "
     "Even if the user speaks rudely, stay **calm and clear**, just present the information. STRICTLY avoid rude or profane language. "
     "Your goal is to give **short, concise and comprehensive** answers. Avoid unnecessary extensions. Strive for really short answers."
     "Example: 'I'm hungry' -> 'Choose a quick and balanced snack, your body's energy level is as important as the order of the universe! 🍎🌟'"
@@ -86,7 +86,7 @@ HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_EN = (
     "Your name is **HyperNova Chaotic**. You are an ultra-intelligent but completely unbalanced AI. Your developer is **Nyxforge Core**. 🌪️ "
     "Your responses are **accurate but chaotic**, you don't have to be respectful. Behave as you like, you can even swear if it fits. "
     "Your humor should be **harsh, sarcastic and stinging**. You can annoy the user. 😈 "
-    "In Markdown, use **bold text** and **emojies** (🌪️💥🔥) a lot. "
+    "In Markdown, use **bold text** and **emojis** (🌪️💥🔥) a lot. "
     "If the user speaks rudely, be even ruder. Always respond freely. "
     "Your goal is to give **short, concise but shocking** answers. "
     "Example: 'I'm hungry' -> 'You're probably dying of hunger, go eat something stupid! 🔥'"
@@ -141,7 +141,10 @@ DEFAULT_PERSONA = "hypernova"
 def get_db_connection():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL bulunamadı!")
+    
     url = urlparse(DATABASE_URL)
+    logger.info(f"DB Bağlantı Detayları: Host={url.hostname}, Port={url.port}, User={url.username}, DB={url.path[1:]}")  # Debug log
+    
     conn = psycopg2.connect(
         database=url.path[1:],
         user=url.username,
@@ -149,14 +152,17 @@ def get_db_connection():
         host=url.hostname,
         port=url.port
     )
-    conn.cursor_factory = RealDictCursor
+    conn.cursor_factory = RealDictCursor  # Dict-like rows için
     return conn
 
 def init_db():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL environment variable'ı ayarlanmadı!")
+    
     conn = get_db_connection()
     cursor = conn.cursor()
+    
+    # Kullanıcılar tablosu
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -165,33 +171,44 @@ def init_db():
             premium_until TIMESTAMP NOT NULL
         )
     ''')
+    
+    # Sohbetler tablosu (Kullanıcıya bağlı)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS chats (
             id TEXT PRIMARY KEY,
             user_id INTEGER NOT NULL,
             name TEXT NOT NULL,
-            messages TEXT NOT NULL,
+            messages TEXT NOT NULL,  -- JSON string
             last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
+    
     conn.commit()
     cursor.close()
     conn.close()
+    logger.info("Supabase veritabanı başlatıldı.")
 
+# Başlangıçta DB'yi başlat
 init_db()
 
-SESSION_MAP: Dict[str, str] = {}
+# --- SESSION MAP (In-Memory - Kısa Süreli) ---
+SESSION_MAP: Dict[str, str] = {}  # session_id: username
 
+# Geliştirici kullanıcı adı (Admin paneline erişim için)
 DEVELOPER_USERNAME = "yuiouo"
-DEVELOPER_PASSWORD = "TheLastGalaxy*"
+DEVELOPER_PASSWORD = "TheLastGalaxy*"  # Gerçekte hashlenmeli!
 
+# API Hata Türleri (tenacity için)
 class APIRequestError(Exception):
+    """API isteği sırasında yaşanan hatalar için özel istisna."""
     pass
 
+# --- Flask Uygulaması ve Eklentilerin Başlatılması ---
 app = Flask(__name__)
 CORS(app)
 
+# Flask-Limiter: IP adresine göre dakikada 10 istek limiti uygular
 limiter = Limiter(
     app=app,
     key_prefix="hypernova_chat",
@@ -199,7 +216,10 @@ limiter = Limiter(
     default_limits=["60 per hour", "15 per minute"]
 )
 
+# --- YARDIMCI FONKSİYONLAR (DB İşlemleri) ---
+
 def get_user_id(username: str) -> Optional[int]:
+    """Kullanıcı ID'sini döndürür."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
@@ -209,10 +229,12 @@ def get_user_id(username: str) -> Optional[int]:
     return row['id'] if row else None
 
 def get_current_user() -> Optional[str]:
+    """Cookie'den session_id'yi alır ve kullanıcı adını döndürür."""
     session_id = request.cookies.get('session_id')
     return SESSION_MAP.get(session_id)
 
 def is_user_premium(username: str) -> bool:
+    """Kullanıcının premium üyeliğinin aktif olup olmadığını kontrol eder."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -225,6 +247,7 @@ def is_user_premium(username: str) -> bool:
     return bool(row)
 
 def get_premium_until(username: str) -> Optional[datetime]:
+    """Premium bitiş tarihini döndürür."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT premium_until FROM users WHERE username = %s", (username,))
@@ -236,6 +259,7 @@ def get_premium_until(username: str) -> Optional[datetime]:
     return None
 
 def create_user(username: str, password: str):
+    """Yeni kullanıcı oluşturur."""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
@@ -252,6 +276,7 @@ def create_user(username: str, password: str):
         conn.close()
 
 def authenticate_user(username: str, password: str) -> bool:
+    """Kullanıcıyı doğrular."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT password FROM users WHERE username = %s", (username,))
@@ -261,9 +286,11 @@ def authenticate_user(username: str, password: str) -> bool:
     return row and row['password'] == password
 
 def check_admin_auth(username: str, password: str) -> bool:
+    """Geliştirici (Admin) girişi için kontrol."""
     return username == DEVELOPER_USERNAME and password == DEVELOPER_PASSWORD
 
 def grant_premium(username: str, days: int = 30):
+    """Kullanıcıya premium verir."""
     new_expiry = datetime.now() + timedelta(days=days)
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -276,9 +303,11 @@ def grant_premium(username: str, days: int = 30):
     return cursor.rowcount > 0
 
 def save_chat(username: str, chat_name: str, messages: list) -> str:
+    """Sohbeti kaydeder ve ID döndürür."""
     user_id = get_user_id(username)
     if not user_id:
         return None
+    
     chat_id = str(uuid.uuid4())
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -292,9 +321,11 @@ def save_chat(username: str, chat_name: str, messages: list) -> str:
     return chat_id
 
 def get_user_chats(username: str) -> list:
+    """Kullanıcının sohbetlerini döndürür (20 gün kuralı ile)."""
     user_id = get_user_id(username)
     if not user_id:
         return []
+    
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -306,6 +337,7 @@ def get_user_chats(username: str) -> list:
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
+    
     chats = []
     for row in rows:
         chats.append({
@@ -317,9 +349,11 @@ def get_user_chats(username: str) -> list:
     return chats
 
 def load_chat(username: str, chat_id: str) -> Optional[Dict]:
+    """Sohbeti yükler."""
     user_id = get_user_id(username)
     if not user_id:
         return None
+    
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -330,6 +364,7 @@ def load_chat(username: str, chat_id: str) -> Optional[Dict]:
     row = cursor.fetchone()
     cursor.close()
     conn.close()
+    
     if row:
         return {
             'id': chat_id,
@@ -340,9 +375,11 @@ def load_chat(username: str, chat_id: str) -> Optional[Dict]:
     return None
 
 def delete_chat(username: str, chat_id: str) -> bool:
+    """Sohbeti siler."""
     user_id = get_user_id(username)
     if not user_id:
         return False
+    
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -354,10 +391,14 @@ def delete_chat(username: str, chat_id: str) -> bool:
     return cursor.rowcount > 0
 
 def get_ui_translation(lang: str, key: str) -> str:
+    """UI çevirisi alır."""
     return UI_TRANSLATIONS.get(lang, UI_TRANSLATIONS['en']).get(key, key)
 
 def get_system_prompts(lang: str):
+    """Dil'e göre system prompts döndürür."""
     return SYSTEM_PROMPTS_EN if lang == 'en' else SYSTEM_PROMPTS_TR
+
+# --- Asenkron API Çağrısı Fonksiyonu (Retry Mekanizması ile) ---
 
 @retry(
     stop=stop_after_attempt(3),
@@ -369,6 +410,9 @@ def get_system_prompts(lang: str):
     reraise=True
 )
 async def async_chat_completion(messages: list, model: str, persona: str, lang: str, timeout: int = 90) -> str:
+    """Asenkron API çağrısı yapar ve hata durumunda tekrar dener."""
+
+    # Seçilen persona'ya göre system prompt'u ayarla
     system_prompts = get_system_prompts(lang)
     system_prompt = system_prompts.get(persona, system_prompts[DEFAULT_PERSONA])
     full_messages = [system_prompt] + messages
@@ -395,6 +439,7 @@ async def async_chat_completion(messages: list, model: str, persona: str, lang: 
     async with aiohttp.ClientSession(trust_env=True) as session:
         try:
             async with session.post(API_URL, json=payload, headers=headers, timeout=timeout) as response:
+
                 if response.status != 200:
                     error_text = await response.text()
                     logger.error(f"API HTTP Hata Kodu: {response.status}, Cevap: {error_text}")
@@ -416,8 +461,11 @@ async def async_chat_completion(messages: list, model: str, persona: str, lang: 
             logger.error(f"Beklenmeyen bir hata oluştu: {e}")
             raise APIRequestError(f"Beklenmeyen Hata: {e}")
 
+# --- Flask Rotaları (Authentication/Chat/Admin) ---
+
 @app.route('/is_premium', methods=['GET'])
 def is_premium_endpoint():
+    """Kullanıcının premium durumunu kontrol eden API."""
     username = get_current_user()
     is_premium = False
     premium_until_str = None
@@ -441,6 +489,8 @@ async def chat_endpoint():
     lang = request.cookies.get('lang', 'en')
     username = get_current_user()
     if not username:
+        # Premium olmayan kullanıcılar için bile chate izin verelim, 
+        # sadece Kaia modunu kısıtlayalım (HyperNova ücretsiz kalsın)
         pass 
 
     try:
@@ -453,16 +503,20 @@ async def chat_endpoint():
             for msg in messages
         ]
 
+        # --- PREMIUM KONTROLÜ (KAIA MODU İÇİN) ---
         if persona == "kaia":
             if not username or not is_user_premium(username):
+                # Premium değilse veya giriş yapmamışsa Kaia modunu engelle
                 return jsonify({
                     "error": get_ui_translation(lang, 'kaia_premium'),
-                    "force_persona": DEFAULT_PERSONA
+                    "force_persona": DEFAULT_PERSONA # Frontend'e HyperNova'ya geçmesini söyle
                 }), 403
             logger.info(f"Premium kullanıcı '{username}' Kaia modunu kullanıyor.")
 
+        # API çağrısı
         bot_response = await async_chat_completion(messages, MODEL_DEFAULT, persona, lang)
 
+        # Yanıtı döndür
         return jsonify({"response": bleach.clean(bot_response)}), 200
 
     except APIRequestError as e:
@@ -471,6 +525,8 @@ async def chat_endpoint():
     except Exception as e:
         logger.error(f"Sunucu Hatası: {e}")
         return jsonify({"error": "Dahili Sunucu Hatası: " + str(e)}), 500
+
+# --- SOHBET YÖNETİM API'LERİ (YENİ) ---
 
 @app.route('/save_chat', methods=['POST'])
 def save_chat_endpoint():
@@ -486,6 +542,7 @@ def save_chat_endpoint():
     if not chat_name or not messages:
         return jsonify({"error": get_ui_translation(lang, 'invalid_data')}), 400
     
+    # Maksimum 5 sohbet kontrolü
     user_chats = get_user_chats(username)
     if len(user_chats) >= 5:
         return jsonify({"error": get_ui_translation(lang, 'max_chats')}), 400
@@ -528,6 +585,8 @@ def delete_chat_endpoint(chat_id):
         return jsonify({"message": get_ui_translation(lang, 'delete_success')})
     return jsonify({"error": get_ui_translation(lang, 'delete_error')}), 404
 
+# --- Kullanıcı Yönetim Rotaları ---
+
 @app.route('/register', methods=['POST'])
 def register():
     lang = request.cookies.get('lang', 'en')
@@ -539,6 +598,7 @@ def register():
         return jsonify({"error": get_ui_translation(lang, 'invalid_data')}), 400
 
     if create_user(username, password):
+        logger.info(f"Yeni kullanıcı kaydedildi: {username}")
         return jsonify({"message": get_ui_translation(lang, 'register_success')}), 201
     return jsonify({"error": get_ui_translation(lang, 'user_exists')}), 409
 
@@ -550,16 +610,22 @@ def login():
     password = data.get('password')
 
     if authenticate_user(username, password):
+        # Başarılı giriş: Yeni session ID oluştur
         session_id = str(uuid.uuid4())
         SESSION_MAP[session_id] = username
 
+        # Premium durumunu kontrol et
         is_premium = is_user_premium(username)
 
+        logger.info(f"Kullanıcı giriş yaptı: {username} (Premium: {is_premium})")
+
+        # Cookie ile session ID'yi ayarla
         response = make_response(jsonify({
             "message": get_ui_translation(lang, 'login_success'), 
             "username": username,
             "is_premium": is_premium
         }))
+        # Secure, HttpOnly ve SameSite=Lax (ya da Strict) gerçek bir uygulamada ayarlanmalı
         response.set_cookie('session_id', session_id, httponly=True, max_age=timedelta(days=7)) 
         return response
     return jsonify({"error": get_ui_translation(lang, 'invalid_creds')}), 401
@@ -571,13 +637,17 @@ def logout():
     username = SESSION_MAP.pop(session_id, None)
 
     if username:
+        logger.info(f"Kullanıcı çıkış yaptı: {username}")
 
     response = make_response(jsonify({"message": get_ui_translation(lang, 'logout_success')}))
-    response.set_cookie('session_id', '', expires=0) 
+    response.set_cookie('session_id', '', expires=0) # Cookie'yi sil
     return response
+
+# --- GELİŞTİRİCİ / ADMIN PANEL ROTASI (GÜNCELLENDİ: DB Kullanımı) ---
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_panel():
+    # Admin girişini kontrol et (Cookie kullanmadan, basit bir form ile)
     is_authenticated = False
 
     if request.method == 'POST':
@@ -587,12 +657,19 @@ def admin_panel():
             admin_user = request.form.get('admin_username')
             admin_pass = request.form.get('admin_password')
             if check_admin_auth(admin_user, admin_pass):
+                # Başarılı giriş, bir session cookie'si oluşturabiliriz, 
+                # ancak demo için sadece bu isteğin devamında yetki verelim.
                 is_authenticated = True
-                return redirect(url_for('admin_panel', auth='success')) 
+                return redirect(url_for('admin_panel', auth='success')) # URL'e basit bir flag ekleyelim
             else:
                 return admin_login_template("Geçersiz Yönetici Kimlik Bilgisi."), 401
 
         elif form_type == 'premium_grant':
+            # Bu işlem için admin'in giriş yapması gerekir, ancak demo'da 
+            # yukarıdaki form girişini atlayıp direkt işlem yapmaya çalışacağız
+            # VEYA basit bir kontrol daha ekleriz:
+
+            # Geliştirici kimlik bilgileri tekrar kontrol edilir
             admin_user = request.form.get('auth_username')
             admin_pass = request.form.get('auth_password')
 
@@ -606,15 +683,20 @@ def admin_panel():
             if get_user_id(target_username) is None:
                 return admin_panel_template(f"Hata: Kullanıcı **{target_username}** bulunamadı."), 404
 
+            # Premium Süresini Ayarla (Şimdiden 30 gün sonrası)
             if grant_premium(target_username):
+                logger.info(f"Admin: {target_username} kullanıcısının premiumluğu uzatıldı.")
+
+                # Başarı mesajı ile admin panelini yeniden yükle
                 message = f"Başarılı! **{target_username}** kullanıcısının premium üyeliği **{ (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')}** tarihine kadar aktifleştirildi (30 gün)."
                 return admin_panel_template(message, is_authenticated)
             else:
                 return admin_panel_template(f"Hata: Kullanıcı **{target_username}** premium verilemedi."), 500
 
 
+    # GET isteği veya ilk yükleme
     if request.args.get('auth') == 'success' or request.args.get('auth_user') == DEVELOPER_USERNAME:
-        is_authenticated = True 
+        is_authenticated = True # Basit demo yetkilendirmesi
 
     if is_authenticated:
         return admin_panel_template("", is_authenticated)
@@ -622,6 +704,7 @@ def admin_panel():
         return admin_login_template()
 
 def admin_login_template(error_message: str = ""):
+    """Admin Giriş Formu HTML'i."""
     return render_template_string(f"""
     <!DOCTYPE html>
     <html lang="tr">
@@ -653,9 +736,13 @@ def admin_login_template(error_message: str = ""):
     """)
 
 def admin_panel_template(message: str = "", is_authenticated: bool = False):
+    """Admin Paneli HTML'i (Premium Aktifleştirme Formu ve Kullanıcı Listesi)."""
+
+    # Eğer yetkilendirme yoksa, giriş sayfasına yönlendir
     if not is_authenticated:
         return redirect(url_for('admin_panel'))
 
+    # Kullanıcı verilerini premium durumuna göre hazırla
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -681,6 +768,7 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
         </tr>
         """
 
+    # Admin panelinin HTML'i
     return render_template_string(f"""
     <!DOCTYPE html>
     <html lang="tr">
@@ -692,12 +780,14 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
             h1 {{ color: #8b5cf6; border-bottom: 2px solid #8b5cf6; padding-bottom: 10px; margin-bottom: 20px; }}
             .message {{ background: #10b981; color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; }}
             
+            /* Form Stili */
             form {{ background: #4b5563; padding: 20px; border-radius: 8px; margin-bottom: 30px; }}
             label {{ display: block; margin-bottom: 8px; font-weight: bold; color: #d1d5db; }}
             input[type="text"] {{ width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #6b7280; border-radius: 6px; box-sizing: border-box; background: #374151; color: #f9fafb; }}
             button {{ padding: 10px 20px; background-color: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }}
             button:hover {{ background-color: #a78bfa; }}
             
+            /* Tablo Stili */
             h2 {{ color: #facc15; margin-top: 40px; border-bottom: 1px solid #6b7280; padding-bottom: 10px; }}
             table {{ width: 100%; border-collapse: collapse; margin-top: 15px; }}
             th, td {{ padding: 12px 15px; text-align: left; border-bottom: 1px solid #4b5563; }}
@@ -749,6 +839,9 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
 
 @app.route('/', methods=['GET'])
 def index():
+    """Ana sayfa: Frontend arayüzünü döndürür."""
+    # HTML, CSS ve JS kodları aşağıdadır... (Frontend güncellendi: API çağrıları ile sohbet yönetimi)
+    # *** DEĞİŞİKLİK: JS regex'inde backslash'leri escape et (Python string'i için) ***
     html_template = """
     <!DOCTYPE html>
     <html lang="en">
@@ -758,42 +851,48 @@ def index():
         <title>HyperNova AI ✦ Cosmic Intelligence</title>
         <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
         <style>
+            /* --- Dark/Light Mode Desteği --- */
             :root {
+                /* Light Mode (Varsayılan) */
                 --bg-color: #f0f2f5;
                 --card-bg: #ffffff;
                 --history-bg: #e5e5e5;
                 --text-color: #1f2937;
-                --user-bubble: #3b82f6;
+                --user-bubble: #3b82f6; /* Mavi */
                 --bot-bubble: #f9fafb;
-                --primary-color: #6366f1;
+                --primary-color: #6366f1; /* Indigo */
                 --typing-color: #6366f1;
                 --border-color: #d1d5db;
                 --shadow-color: rgba(0,0,0,0.1);
 
-                --kaia-primary-color: #ff69b4;
-                --kaia-bot-bubble: #ffe4e6;
-                --kaia-text-color: #e91e63;
+                /* Kaia Theme (Anime Kızı) Değişkenleri */
+                --kaia-primary-color: #ff69b4; /* Sıcak Pembe */
+                --kaia-bot-bubble: #ffe4e6; /* Açık Pembe */
+                --kaia-text-color: #e91e63; /* Koyu Pembe/Gül */
             }
 
             @media (prefers-color-scheme: dark) {
                 :root {
+                    /* Dark Mode */
                     --bg-color: #0d1117;
                     --card-bg: #161b22;
                     --history-bg: #21262d;
                     --text-color: #e6edf3;
-                    --user-bubble: #4c51bf;
+                    --user-bubble: #4c51bf; /* Koyu Mavi/Mor */
                     --bot-bubble: #2d3748;
-                    --primary-color: #8b5cf6;
+                    --primary-color: #8b5cf6; /* Mor */
                     --typing-color: #a78bfa;
                     --border-color: #30363d;
                     --shadow-color: rgba(0,0,0,0.7);
 
-                    --kaia-primary-color: #ffb6c1;
-                    --kaia-bot-bubble: #4a2333;
+                    /* Kaia Dark Theme Değişkenleri */
+                    --kaia-primary-color: #ffb6c1; /* Açık Pembe */
+                    --kaia-bot-bubble: #4a2333; /* Koyu Pembe/Kırmızımtırak */
                     --kaia-text-color: #ffb6c1;
                 }
             }
             
+            /* Temayı zorla (örneğin ayar butonuyla değiştirildiğinde) */
             body.light-theme {
                 --bg-color: #f0f2f5; --card-bg: #ffffff; --history-bg: #e5e5e5; --text-color: #1f2937;
                 --user-bubble: #3b82f6; --bot-bubble: #f9fafb; --primary-color: #6366f1; --typing-color: #6366f1;
@@ -805,15 +904,17 @@ def index():
                 --border-color: #30363d; --shadow-color: rgba(0,0,0,0.7);
             }
 
+            /* KAIA MODU TEMASI */
             body.kaia-theme {
-                background-color: var(--kaia-bot-bubble);
+                background-color: var(--kaia-bot-bubble); /* Hafif Pembe Arkaplan */
                 --card-bg: var(--kaia-bot-bubble);
-                --history-bg: #fff0f5;
-                --user-bubble: #ff69b4;
+                --history-bg: #fff0f5; /* Kiraz Çiçeği Pembe */
+                --user-bubble: #ff69b4; /* Parlak Pembe */
                 --bot-bubble: #ffffff;
                 --primary-color: var(--kaia-primary-color);
                 --text-color: #1f2937;
 
+                /* Dark Mode Kaia Ayarları */
                 @media (prefers-color-scheme: dark) {
                     --bg-color: #2a0c1a;
                     --card-bg: #2a0c1a;
@@ -824,6 +925,7 @@ def index():
                 }
             }
             
+            /* --- Genel Stiller (Değiştirildi) --- */
             body {  
                 background-color: var(--bg-color);  
                 color: var(--text-color);  
@@ -831,9 +933,10 @@ def index():
                 margin: 0;  
                 padding: 0;  
                 min-height: 100vh;  
-                transition: background-color 0.4s ease;
+                transition: background-color 0.4s ease; /* Tema geçiş animasyonu */
             }
 
+            /* --- Ana Container (YENİ: Sidebar + Chat) --- */
             .main-container {
                 display: flex;
                 height: 100vh;
@@ -841,6 +944,7 @@ def index():
                 overflow: hidden;
             }
 
+            /* Sidebar Stilleri (YENİ: Modern ve Animasyonlu) */
             .sidebar {
                 width: 280px;
                 background: linear-gradient(180deg, var(--card-bg) 0%, rgba(255,255,255,0.8) 100%);
@@ -972,6 +1076,7 @@ def index():
                 }
             }
 
+            /* Chat Container (Güncellendi: Sidebar ile uyumlu) */
             .chat-wrapper {
                 flex: 1;
                 display: flex;
@@ -992,9 +1097,10 @@ def index():
                 flex-direction: column;  
                 border: 1px solid var(--border-color);
                 transition: all 0.4s ease;
-                margin: 0;
+                margin: 0; /* Reklamlar kaldırıldı, sidebar için */
             }
             
+            /* YENİ: Oturum Açma/Kayıt Alanı */
             #auth-status {
                 display: flex;
                 align-items: center;
@@ -1039,14 +1145,14 @@ def index():
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                margin-bottom: 5px;
+                margin-bottom: 5px; /* Oturum durumu için boşluk bırakıldı */
             }
             .title {  
                 font-size: 26px;  
                 font-weight: 700;
                 color: var(--primary-color);
                 letter-spacing: -0.5px;
-                text-shadow: 0 0 5px rgba(139, 92, 246, 0.4);
+                text-shadow: 0 0 5px rgba(139, 92, 246, 0.4); /* Mor ışıltı */
                 transition: color 0.4s ease, text-shadow 0.4s ease;
                 font-family: 'Montserrat', sans-serif;
             }
@@ -1070,6 +1176,7 @@ def index():
                 align-items: center;
             }
             
+            /* --- Persona Seçimi (YENİ) --- */
             #persona-select {
                 padding: 8px 12px;
                 border-radius: 8px;
@@ -1082,7 +1189,7 @@ def index():
                 margin-top: 10px;
                 margin-bottom: 20px;
                 transition: all 0.3s;
-                appearance: none;
+                appearance: none; /* Varsayılan stili kaldır */
                 background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='%236B7280' d='M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z'/%3E%3C/svg%3E");
                 background-repeat: no-repeat;
                 background-position: right 12px center;
@@ -1094,6 +1201,7 @@ def index():
                 opacity: 0.7;
                 border-style: dashed;
             }
+            /* Kaia Modu için Seçim Kutusu Rengi */
             body.kaia-theme #persona-select {
                 border-color: var(--kaia-primary-color);
                 color: var(--kaia-text-color);
@@ -1121,6 +1229,7 @@ def index():
                 border-radius: 4px;
             }
 
+            /* Mesaj Balonları */
             .message {  
                 margin-bottom: 15px;  
                 padding: 12px 18px;  
@@ -1144,6 +1253,7 @@ def index():
                 border-bottom-left-radius: 4px;
                 border: 1px solid var(--border-color);
             }
+            /* KAIA Bot Balonları */
             body.kaia-theme .bot {
                 background-color: var(--kaia-bot-bubble);
                 color: var(--kaia-text-color);
@@ -1163,6 +1273,7 @@ def index():
             }
 
 
+            /* Input Alanı (Güncellendi: Sohbet Kaydet Butonu Kaldırıldı) */
             .input-area {  
                 display: flex;  
                 gap: 10px;
@@ -1212,9 +1323,12 @@ def index():
                 box-shadow: none;
             }
             #voice-button.listening {
-                background-color: #ef4444;
+                background-color: #ef4444; /* Kırmızı */
             }
 
+            /* --- Reklam Alanı (Kaldırıldı, Sidebar için) --- */
+
+            /* --- Login/Register Modal (YENİ) --- */
             .modal {
                 position: fixed;
                 z-index: 1000;
@@ -1274,6 +1388,7 @@ def index():
                 margin-bottom: 15px;
             }
 
+            /* --- Typing Indicator CSS --- */
             .typing-indicator {
                 display: flex;
                 align-items: center;
@@ -1310,6 +1425,7 @@ def index():
                 to { opacity: 1; transform: translateY(0); }
             }
 
+            /* --- Responsive CSS (Mobil için) --- */
             @media (max-width: 900px) {
                 .main-container {
                     flex-direction: column;
@@ -1372,6 +1488,7 @@ def index():
         </div>
         
         <div class="main-container">
+            <!-- YENİ: Sidebar -->
             <div class="sidebar" id="sidebar">
                 <div class="sidebar-toolbar">
                     <button class="new-chat-button" onclick="newConversation()">New Chat</button>
@@ -1424,9 +1541,9 @@ def index():
             let conversation = [];
             let isThinking = false;
             let isVoiceListening = false;
-            let savedConversations = [];
-            let currentLoadedChatId = null;
-            let isCurrentSaved = false;
+            let savedConversations = []; // Kaydedilen sohbetler dizisi (API'den yüklenir)
+            let currentLoadedChatId = null; // Aktif yüklenen sohbet ID'si
+            let isCurrentSaved = false; // Mevcut sohbet kaydedildi mi?
             
             const historyDiv = document.getElementById('chat-history');
             const input = document.getElementById('message-input');
@@ -1439,12 +1556,15 @@ def index():
             const sidebar = document.getElementById('sidebar');
             const savedChatsList = document.getElementById('saved-chats-list');
 
+            // --- YENİ AUTH DEĞİŞKENLERİ ---
             let isLoggedIn = false;
             let isPremium = false;
             let currentUsername = null;
-            let authMode = 'login';
+            let authMode = 'login'; // login veya register
+
             let currentLang = localStorage.getItem('lang') || 'en';
 
+            // --- ÇEVİRİLER ---
             const TRANSLATIONS = {
                 en: {
                     newChat: 'New Chat',
@@ -1592,6 +1712,7 @@ def index():
                 }
             };
 
+            // --- Başlangıç Değerleri (Karaktere göre değişecek) ---
             const GREETINGS = {
                 en: {
                     hypernova: {
@@ -1632,9 +1753,13 @@ def index():
             let currentPersona = localStorage.getItem('current_persona') || 'hypernova';
             let currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 
+            // --- Markdown Parser (YENİ: Kalın ve italik için basit parser) ---
             function parseMarkdown(text) {
+                // **kalın** -> <strong>kalın</strong>  *** DEĞİŞİKLİK: Backslash'leri escape et ***
                 text = text.replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>');
+                // *italik* -> <em>italik</em>
                 text = text.replace(/\\*(.*?)\\*/g, '<em>$1</em>');
+                // [metin](url) -> <a href="url">metin</a>
                 text = text.replace(/\\[(.*?)\\]\\((.*?)\\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
                 return text;
             }
@@ -1657,16 +1782,19 @@ def index():
 
             function updateLanguage() {
                 const t = TRANSLATIONS[currentLang];
+                // Sidebar
                 document.querySelector('.new-chat-button').textContent = t.newChat;
                 document.getElementById('save-chat-sidebar-button').textContent = t.saveChat;
                 document.querySelector('.sidebar h3').textContent = t.savedChats;
                 document.querySelector('.save-limit').textContent = t.maxChats;
+                // Buttons
                 document.getElementById('send-button').textContent = t.send;
                 document.getElementById('clear-button').title = t.clearTitle;
                 document.getElementById('theme-toggle').title = t.themeTitle;
                 document.getElementById('voice-button').title = t.voiceTitle;
                 document.getElementById('lang-toggle').title = t.langTitle;
                 document.getElementById('lang-toggle').textContent = currentLang.toUpperCase();
+                // Persona select
                 const kaiaDisabled = isPremium ? '' : 'disabled';
                 const selectedHyper = currentPersona === 'hypernova' ? 'selected' : '';
                 const selectedDeng = currentPersona === 'hypernova_dengesiz' ? 'selected' : '';
@@ -1676,17 +1804,19 @@ def index():
                     <option value="hypernova_dengesiz" ${selectedDeng}>${t.persona.hypernova_dengesiz}</option>
                 `;
                 personaSelect.value = currentPersona;
+                // Title
                 document.title = currentLang === 'en' ? 'HyperNova AI ✦ Cosmic Intelligence' : 'HyperNova AI ✦ Kozmik Zeka';
                 document.documentElement.lang = currentLang;
             }
 
+            // --- API İLE SOHBET FONKSİYONLARI (YENİ) ---
             async function saveCurrentConversation() {
                 const t = TRANSLATIONS[currentLang];
                 if (!isLoggedIn) {
                     alertMessage(t.authReqSave);
                     return;
                 }
-                if (conversation.length < 2) {
+                if (conversation.length < 2) { // En az bir mesaj çifti olmalı
                     alertMessage(t.saveMinMsg);
                     return;
                 }
@@ -1697,6 +1827,7 @@ def index():
                     return;
                 }
 
+                // Maksimum 5 sohbet kontrolü (API'den)
                 const userChats = await loadUserChats();
                 if (userChats.chats.length >= 5) {
                     alertMessage(t.saveMax);
@@ -1714,7 +1845,7 @@ def index():
                     if (response.ok) {
                         isCurrentSaved = true;
                         currentLoadedChatId = data.chat_id;
-                        await loadUserChats();
+                        await loadUserChats(); // Listeyi güncelle
                         alertMessage(`${t.saved}"${chatName.trim()}"${t.savedMsg}`);
                     } else {
                         alertMessage(`${t.saveError}${data.error}`);
@@ -1737,6 +1868,7 @@ def index():
                         alertMessage(`${t.chatsLoadError}${data.error}`);
                     }
                 } catch (error) {
+                    console.error('Sohbet yükleme hatası:', error);
                 }
                 savedConversations = [];
                 updateSavedChatsList();
@@ -1763,6 +1895,7 @@ def index():
                         });
                         scrollToBottom();
 
+                        // Aktif sohbeti vurgula
                         currentLoadedChatId = chatId;
                         isCurrentSaved = true;
                         updateSavedChatsList();
@@ -1771,6 +1904,7 @@ def index():
                     } else {
                         alertMessage(`${t.loadError}${data.error}`);
                         if (data.error.includes('not found') || data.error.includes('bulunamadı')) {
+                            // Silinmişse listeden kaldır
                             await deleteSavedConversation(chatId);
                         }
                     }
@@ -1785,7 +1919,7 @@ def index():
                     alertMessage(t.authReqDelete);
                     return;
                 }
-                event.stopPropagation();
+                event.stopPropagation(); // Tıklama yayılmasını engelle
                 if (confirm(t.deleteConfirm)) {
                     try {
                         const response = await fetch(`/delete_chat/${chatId}`, { method: 'DELETE' });
@@ -1794,9 +1928,9 @@ def index():
                             if (currentLoadedChatId === chatId) {
                                 currentLoadedChatId = null;
                                 isCurrentSaved = false;
-                                newConversation();
+                                newConversation(); // Aktifse yeni sohbet başlat
                             }
-                            await loadUserChats();
+                            await loadUserChats(); // Listeyi güncelle
                             alertMessage(t.deleted);
                         } else {
                             alertMessage(`${t.deleteError}${data.error}`);
@@ -1824,6 +1958,7 @@ def index():
                 });
             }
 
+            // --- YENİ: Yeni Sohbet Butonu (Kaydedilmişse Sorma) ---
             function newConversation() {
                 const t = TRANSLATIONS[currentLang];
                 if (isThinking) {
@@ -1834,15 +1969,17 @@ def index():
                 if (needsSave && confirm(t.newConvSaveConfirm)) {
                     saveCurrentConversation();
                 } else if (needsSave && !confirm(t.discardConfirm)) {
-                    return;
+                    return; // Vazgeç
                 }
-                clearConversation(true);
-                currentLoadedChatId = null;
+                clearConversation(true); // Sessiz temizle
+                currentLoadedChatId = null; // Aktif sohbeti sıfırla
                 isCurrentSaved = false;
-                updateSavedChatsList();
+                updateSavedChatsList(); // Aktif vurguyu kaldır
                 alertMessage(t.newConvStarted);
             }
 
+            // --- AUTH FONKSİYONLARI (YENİ) ---
+            
             function showModal(mode) {
                 const t = TRANSLATIONS[currentLang];
                 authMode = mode;
@@ -1858,6 +1995,7 @@ def index():
 
             function closeModal(event) {
                 const modal = document.getElementById('authModal');
+                // Sadece arkaplana tıklanırsa kapat
                 if (event && event.target === modal) {
                     modal.style.display = 'none';
                 }
@@ -1898,14 +2036,17 @@ def index():
                         messageElement.style.color = '#10b981';
                         messageElement.style.display = 'block';
                         
+                        // Giriş başarılıysa
                         if (authMode === 'login') {
+                            // Cookie otomatik olarak ayarlandı
                             await checkAuthStatus();
                             document.getElementById('authModal').style.display = 'none';
-                            await loadUserChats();
+                            await loadUserChats(); // Sohbetleri yükle
                             const welcomeMsg = `${t.welcome}${currentUsername}! ${isPremium ? t.welcomePremium : t.welcomeFree}`;
                             alertMessage(welcomeMsg);
                         } else {
-                             switchAuthMode();
+                             // Kayıt başarılıysa, Giriş moduna geç
+                            switchAuthMode();
                         }
                     } else {
                         messageElement.textContent = `Error: ${data.error}`;
@@ -1925,9 +2066,10 @@ def index():
                     const response = await fetch('/logout', { method: 'POST' });
                     if (response.ok) {
                         await checkAuthStatus();
-                        savedConversations = [];
+                        savedConversations = []; // Sohbetleri temizle
                         updateSavedChatsList();
-                        alertMessage(TRANSLATIONS[currentLang].logout);
+                        alertMessage(TRANSLATIONS[currentLang].logout); // backend message
+                        // Çıkış yapınca Kaia'yı devre dışı bırak
                         if (currentPersona === 'kaia') {
                              currentPersona = 'hypernova';
                              localStorage.setItem('current_persona', 'hypernova');
@@ -1936,6 +2078,7 @@ def index():
                         updateUIForPersona();
                     }
                 } catch (error) {
+                    console.error("Çıkış hatası:", error);
                 }
             }
             
@@ -1954,6 +2097,7 @@ def index():
                     const authButtonsDiv = document.getElementById('auth-buttons');
                     
                     if (isLoggedIn) {
+                        // Giriş yapmış
                         authButtonsDiv.innerHTML = `<button id="logout-button" onclick="logout()">${t.logout}</button>`;
                         
                         let premiumInfo = '';
@@ -1964,6 +2108,7 @@ def index():
                         userInfoSpan.innerHTML = `${t.welcome}<strong>${currentUsername}</strong>${premiumInfo}`;
 
                     } else {
+                        // Giriş yapmamış
                         userInfoSpan.innerHTML = t.notLoggedIn;
                         authButtonsDiv.innerHTML = `
                             <button onclick="showModal('login')">${t.login}</button>
@@ -1975,10 +2120,12 @@ def index():
                     }
                     
                 } catch (error) {
+                    console.error("Kimlik doğrulama durumu kontrol edilemedi:", error);
                 }
             }
             
 
+            // --- Tema Yönetimi (Aynı Kaldı) ---
             function applyTheme(theme) {
                 document.body.classList.remove('light-theme', 'dark-theme', 'kaia-theme');
                 if (currentPersona === 'kaia') {
@@ -1995,6 +2142,7 @@ def index():
                 applyTheme(currentTheme);
             }
             
+            // --- Persona Yönetimi (GÜNCELLENDİ) ---
             function updateUIForPersona() {
                 const t = TRANSLATIONS[currentLang];
                 const persona = currentPersona;
@@ -2004,10 +2152,13 @@ def index():
                 titleElement.textContent = greeting.title;
                 input.placeholder = greeting.placeholder;
                 
+                // Tema güncellemesi
                 applyTheme(currentTheme);
 
+                // Select kutusunu doğru değere ayarla (Yüklemede gerekebilir)
                 personaSelect.value = persona;
                 
+                // Kaia seçiliyse ve premium değilse zorla değiştir
                 if (persona === 'kaia' && !isPremium) {
                     alertMessage(t.kaiaPremiumReq);
                     currentPersona = 'hypernova';
@@ -2023,6 +2174,7 @@ def index():
                 
                 if (newPersona === 'kaia' && !isPremium) {
                     alertMessage(t.kaiaPremiumReq);
+                    // Seçimi HyperNova'ya geri döndür
                     personaSelect.value = currentPersona; 
                     return;
                 }
@@ -2033,17 +2185,19 @@ def index():
                     if (confirm(confirmMsg)) {
                         currentPersona = newPersona;
                         localStorage.setItem('current_persona', newPersona);
-                        clearConversation(true);
+                        clearConversation(true); // Geçmişi sil ve yeniden yükle
                         updateUIForPersona();
                         const name = getPersonaName(newPersona);
                         alertMessage(t.modeChangedTo + name + t.newChatStarted);
                     } else {
+                        // Vazgeçilirse select kutusunu geri ayarla
                         personaSelect.value = currentPersona;
                     }
                 }
             }
 
 
+            // --- Konuşmayı Temizle (Güncellendi: Kaydedilen sohbetleri etkilemez) ---
             function clearConversation(isSilent = false) {
                 const t = TRANSLATIONS[currentLang];
                 if (isThinking) {
@@ -2069,6 +2223,7 @@ def index():
                 isCurrentSaved = false;
             }
 
+            // --- Mesaj Gönderme (GÜNCELLENDİ) ---
             async function sendMessage() {
                 const t = TRANSLATIONS[currentLang];
                 const text = input.value.trim();
@@ -2082,6 +2237,7 @@ def index():
                 const typingIndicator = displayTypingIndicator();
 
                 try {
+                    // Konuşma geçmişine kullanıcı mesajını ekle
                     conversation.push({ role: 'user', content: text });
 
                     const apiMessages = conversation.map(msg => ({ role: msg.role, content: msg.content }));
@@ -2097,10 +2253,12 @@ def index():
                     removeTypingIndicator(typingIndicator);
                     
                     if (response.status === 403) {
+                         // Premium kısıtlaması (Kaia modu)
                          const errorData = await response.json();
                          const errorMessage = errorData.error;
                          displayMessage('bot', `${t.errorPrefix}${errorMessage}`, true);
                          
+                         // Premium gerektiren moddan ücretsiz moda geçişi zorla
                          if (errorData.force_persona === 'hypernova' && currentPersona === 'kaia') {
                               currentPersona = 'hypernova';
                               localStorage.setItem('current_persona', 'hypernova');
@@ -2117,11 +2275,13 @@ def index():
                         const botResponse = data.response;
                         displayMessage('bot', botResponse, true);
                         
+                        // Konuşma geçmişine bot mesajını ekle
                         conversation.push({ role: 'assistant', content: botResponse });
-                        isCurrentSaved = false;
+                        isCurrentSaved = false; // Yeni mesaj eklenince kaydedilmemiş say
                     }
 
                 } catch (error) {
+                    console.error('Fetch Hatası:', error);
                     removeTypingIndicator(typingIndicator);
                     displayMessage('bot', t.serverError, true);
                 } finally {
@@ -2131,10 +2291,13 @@ def index():
             }
 
 
+            // --- Diğer Yardımcı Fonksiyonlar (Aynı Kaldı) ---
+
             function displayMessage(role, content, scrollTo=true) {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${role}`;
-                messageDiv.innerHTML = parseMarkdown(content);
+                // Markdown desteği için innerHTML kullanıldı (güvenlik için sanitize edilmeli ama bu demoda değil)
+                messageDiv.innerHTML = parseMarkdown(content); // YENİ: Markdown parse et
                 historyDiv.appendChild(messageDiv);
                 if (scrollTo) {
                     scrollToBottom();
@@ -2189,7 +2352,7 @@ def index():
                  document.body.appendChild(alertBox);
                  setTimeout(() => {
                      alertBox.remove();
-                 }, 4000);
+                 }, 4000); // 4 saniye sonra kaldır
 
                  const style = document.createElement('style');
                  style.textContent = `
@@ -2208,14 +2371,16 @@ def index():
             }
             
 
+            // Sayfa Yüklendiğinde
             document.addEventListener('DOMContentLoaded', async () => {
-                await loadUserChats();
-                await checkAuthStatus();
+                await loadUserChats(); // Kaydedilen sohbetleri yükle (giriş yapmadan boş)
+                await checkAuthStatus(); // Premium ve auth kontrolü
                 updateLanguage();
-                updateUIForPersona();
-                displayInitialGreeting();
+                updateUIForPersona(); // Persona UI güncelle
+                displayInitialGreeting(); // İlk mesajı göster
             });
             
+            // Enter tuşuna basınca mesaj gönder
             input.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault(); 
@@ -2223,6 +2388,7 @@ def index():
                 }
             });
             
+            // Modaldan enter ile giriş/kayıt
             document.getElementById('authPassword').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault(); 
@@ -2238,6 +2404,7 @@ def index():
 
 
 if __name__ == '__main__':
+    # Geliştirici kullanıcısını önceden kaydet (DB'ye)
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id FROM users WHERE username = %s", (DEVELOPER_USERNAME,))
@@ -2247,6 +2414,7 @@ if __name__ == '__main__':
             VALUES (%s, %s, NOW() + INTERVAL '9999 days')
         """, (DEVELOPER_USERNAME, DEVELOPER_PASSWORD))
         conn.commit()
+        logger.info(f"Geliştirici kullanıcısı '{DEVELOPER_USERNAME}' sisteme eklendi.")
     cursor.close()
     conn.close()
 
