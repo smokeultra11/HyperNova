@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, session, redirect, url_for, render_template_string
 from models import db, User, Chat, DEVELOPER_USERNAME, DEVELOPER_PASSWORD_HASH
 from utils import async_chat_completion, get_system_prompts, get_ui_translation, logger, API_KEY, MODEL_DEFAULT
+from app import limiter  # BU SATIRI EKLE: limiter'ı app'ten import et
 import bleach
 import asyncio
 import json
@@ -11,7 +12,7 @@ auth_bp = Blueprint('auth', __name__)
 chat_bp = Blueprint('chat', __name__)
 admin_bp = Blueprint('admin', __name__)
 
-# Auth Rotaları
+# Auth Rotaları (aynı)
 @auth_bp.route('/register', methods=['POST'])
 def register():
     lang = request.cookies.get('lang', 'en')
@@ -65,7 +66,7 @@ def is_premium():
         "premium_until": user.premium_until.isoformat() if user.is_premium() else None
     })
 
-# Chat Rotaları
+# Chat Rotaları (limiter decorator'ı artık çalışır)
 @chat_bp.route('/chat', methods=['POST'])
 @limiter.limit("15 per minute")
 def chat_endpoint():
@@ -140,7 +141,7 @@ def delete_chat(chat_id):
     db.session.commit()
     return jsonify({"message": "Deleted"})
 
-# Admin Rotaları
+# Admin Rotaları (aynı)
 ADMIN_LOGIN_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="tr">
