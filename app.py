@@ -18,14 +18,18 @@ db_url = os.getenv("DATABASE_URL", "")
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
 
-# Supabase genelde SSL ister — yoksa bağlanmaz
+# psycopg3 ile SQLAlchemy uyumu
+if db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+# SSL parametresi yoksa ekle
 if "sslmode" not in db_url:
     db_url += "?sslmode=require"
 
 app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-# SQLALCHEMY ENGINE OPTIONS (pool ayarları güvenli)
+# SQLALCHEMY ENGINE OPTIONS
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_size": 5,
     "max_overflow": 10,
@@ -45,7 +49,6 @@ limiter = Limiter(
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
-
 # --------- TEST MODEL ---------
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -54,12 +57,10 @@ class User(db.Model):
 with app.app_context():
     db.create_all()
 
-
 # --------- TEST ROUTE ---------
 @app.route("/")
 def home():
     return jsonify({"message": "Server working!"})
-
 
 @app.route("/add-user", methods=["POST"])
 def add_user():
@@ -68,7 +69,6 @@ def add_user():
     db.session.add(u)
     db.session.commit()
     return jsonify({"status": "ok"})
-
 
 # --------- RUN ---------
 if __name__ == "__main__":
