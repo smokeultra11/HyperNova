@@ -1,5 +1,5 @@
-from flask import Flask, request, jsonify, session
-from flask_sqlalchemy import SQLAlchemy
+# app.py
+from flask import Flask
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -7,38 +7,39 @@ from flask_session import Session
 from dotenv import load_dotenv
 import os
 
-load_dotenv()  # .env dosyasını yükle
+# Models ve Routes
+from models import db
+from routes import create_auth_bp, create_chat_bp, create_admin_bp
+
+# --- Load environment ---
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-# --- DATABASE URL DÜZELTME ---
-db_url = os.getenv("DATABASE_URL", "")
+# --- Configs ---
+# Secret key
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "some-random-secret-key")
 
+# Database
+db_url = os.getenv("DATABASE_URL", "")
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
-
-# psycopg3 ile SQLAlchemy uyumu
-if db_url.startswith("postgresql://"):
-    db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
-
-# SSL parametresi yoksa ekle
 if "sslmode" not in db_url:
     db_url += "?sslmode=require"
 
 app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-# SQLALCHEMY ENGINE OPTIONS
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_size": 5,
     "max_overflow": 10,
     "pool_pre_ping": True,
 }
 
-db = SQLAlchemy(app)
+# Initialize DB
+db.init_app(app)
 
-# Rate limit
+# Rate limiter
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
@@ -49,27 +50,20 @@ limiter = Limiter(
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
-# --------- TEST MODEL ---------
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(255), nullable=False)
+# --- Register Blueprints ---
+app.register_blueprint(create_auth_bp())
+app.register_blueprint(create_chat_bp(limiter))
+app.register_blueprint(create_admin_bp())
 
+# --- Default route ---
+@app.route("/")
+def home():
+    return "Welcome to the Chat API! Visit /admin for admin panel."
+
+# --- Create tables on first run ---
 with app.app_context():
     db.create_all()
 
-# --------- TEST ROUTE ---------
-@app.route("/")
-def home():
-    return jsonify({"message": "Server working!"})
-
-@app.route("/add-user", methods=["POST"])
-def add_user():
-    data = request.json
-    u = User(username=data["username"])
-    db.session.add(u)
-    db.session.commit()
-    return jsonify({"status": "ok"})
-
-# --------- RUN ---------
+# --- Run ---
 if __name__ == "__main__":
     app.run(debug=True)
