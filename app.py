@@ -1,6 +1,6 @@
 import os
 import asyncio
-from flask import Flask, request, jsonify, render_template_string, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -8,7 +8,7 @@ from flask_session import Session
 from dotenv import load_dotenv
 
 from models import db, User, Chat, DEVELOPER_USERNAME, DEVELOPER_PASSWORD_HASH
-from routes import auth_bp, chat_bp, admin_bp  # Blueprint'leri import et (routes.py'den)
+from routes import create_auth_bp, create_chat_bp, create_admin_bp  # Fonksiyonları import et
 from utils import logger, init_admin_user
 
 load_dotenv()
@@ -26,13 +26,19 @@ CORS(app)
 db.init_app(app)
 Session(app)
 
+# Limiter'ı app'ten önce oluştur (döngü kır)
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
     default_limits=["60 per hour", "15 per minute"]
 )
 
-# Blueprint'leri kaydet
+# Blueprint'leri oluştur (limiter'ı chat_bp'ye geçir)
+auth_bp = create_auth_bp()
+chat_bp = create_chat_bp(limiter)  # Limiter'ı buraya geçir
+admin_bp = create_admin_bp()
+
+# Register et
 app.register_blueprint(auth_bp)
 app.register_blueprint(chat_bp)
 app.register_blueprint(admin_bp)
@@ -42,7 +48,7 @@ app.register_blueprint(admin_bp)
 def index():
     return send_from_directory(app.static_folder, 'index.html')
 
-# Static dosyalar (eğer ek dosya varsa)
+# Static dosyalar
 @app.route('/<path:path>')
 def send_static(path):
     return send_from_directory('static', path)
