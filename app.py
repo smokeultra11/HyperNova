@@ -1,68 +1,75 @@
-import os
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, session
+from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_session import Session
 from dotenv import load_dotenv
+import os
 
-from models import db, User, Chat, DEVELOPER_USERNAME, DEVELOPER_PASSWORD_HASH
-from routes import create_auth_bp, create_chat_bp, create_admin_bp
-from utils import logger, init_admin_user
+load_dotenv()  # .env dosyasını yükle
 
-load_dotenv()
-
-app = Flask(__name__, static_folder='static')
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-me')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# Bu kaldırıldı çünkü psycopg2 isteyip hata veriyordu:
-# app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-#     'poolclass': ConnectionPool,
-#     'pool_pre_ping': True
-# }
-
-app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_PERMANENT'] = True
-app.config['SESSION_USE_SIGNER'] = True
-app.config['PERMANENT_SESSION_LIFETIME'] = 86400 * 7
-
+app = Flask(__name__)
 CORS(app)
-db.init_app(app)
-Session(app)
 
+# --- DATABASE URL DÜZELTME ---
+db_url = os.getenv("DATABASE_URL", "")
+
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+# Supabase genelde SSL ister — yoksa bağlanmaz
+if "sslmode" not in db_url:
+    db_url += "?sslmode=require"
+
+app.config["SQLALCHEMY_DATABASE_URI"] = db_url
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+# SQLALCHEMY ENGINE OPTIONS (pool ayarları güvenli)
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_size": 5,
+    "max_overflow": 10,
+    "pool_pre_ping": True,
+}
+
+db = SQLAlchemy(app)
+
+# Rate limit
 limiter = Limiter(
-    app=app,
     key_func=get_remote_address,
-    default_limits=["60 per hour", "15 per minute"]
+    app=app,
+    default_limits=["100 per hour"]
 )
 
-auth_bp = create_auth_bp()
-chat_bp = create_chat_bp(limiter)
-admin_bp = create_admin_bp()
+# Session
+app.config["SESSION_TYPE"] = "filesystem"
+Session(app)
 
-app.register_blueprint(auth_bp)
-app.register_blueprint(chat_bp)
-app.register_blueprint(admin_bp)
 
-@app.route('/')
-def index():
-    return send_from_directory(app.static_folder, 'index.html')
-
-@app.route('/<path:path>')
-def send_static(path):
-    return send_from_directory('static', path)
-
-@app.errorhandler(500)
-def internal_error(error):
-    logger.error(f"Sunucu Hatası: {error}")
-    return jsonify({"error": "Dahili Sunucu Hatası"}), 500
+# --------- TEST MODEL ---------
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(255), nullable=False)
 
 with app.app_context():
     db.create_all()
-    init_admin_user(db, DEVELOPER_USERNAME, DEVELOPER_PASSWORD_HASH)
-    logger.info("Uygulama başlatıldı.")
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+
+# --------- TEST ROUTE ---------
+@app.route("/")
+def home():
+    return jsonify({"message": "Server working!"})
+
+
+@app.route("/add-user", methods=["POST"])
+def add_user():
+    data = request.json
+    u = User(username=data["username"])
+    db.session.add(u)
+    db.session.commit()
+    return jsonify({"status": "ok"})
+
+
+# --------- RUN ---------
+if __name__ == "__main__":
+    app.run(debug=True)
