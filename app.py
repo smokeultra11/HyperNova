@@ -6,7 +6,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_session import Session
 from dotenv import load_dotenv
-import psycopg  # psycopg3 pool için import et
+from psycopg_pool import ConnectionPool  # Doğru import
 
 from models import db, User, Chat, DEVELOPER_USERNAME, DEVELOPER_PASSWORD_HASH
 from routes import create_auth_bp, create_chat_bp, create_admin_bp
@@ -19,8 +19,8 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-me')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'poolclass': psycopg.Pool,  # psycopg3 pool'u zorla
-    'pool_pre_ping': True  # Bağlantı testi için
+    'poolclass': ConnectionPool,  # Doğru psycopg3 pool
+    'pool_pre_ping': True  # Bağlantı testi
 }
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = True
