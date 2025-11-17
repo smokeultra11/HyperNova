@@ -1402,7 +1402,7 @@ def index():
                  
                     <select id="persona-select" onchange="changePersona()">
                         <option value="hypernova">HyperNova (Standard) 🪐</option>
-                        <option value="kaia" disabled>Kaia (Anime) (Premium) 🌠</option>
+                        <option value="kaia" disabled>Kaia (Premium) 🌠</option>
                         <option value="hypernova_dengesiz">HyperNova Chaotic (Chaotic) 🌪️</option>
                     </select>
                     <div id="chat-history">
@@ -1510,7 +1510,7 @@ def index():
                     name_hypernova_dengesiz: 'HyperNova Chaotic',
                     persona: {
                         hypernova: 'HyperNova (Standard) 🪐',
-                        kaia: 'Kaia (Anime) (Premium) 🌠',
+                        kaia: 'Kaia (Premium) 🌠',
                         hypernova_dengesiz: 'HyperNova Chaotic (Chaotic) 🌪️'
                     }
                 },
@@ -1582,7 +1582,7 @@ def index():
                     name_hypernova_dengesiz: 'HyperNova Dengesiz',
                     persona: {
                         hypernova: 'HyperNova (Standart) 🪐',
-                        kaia: 'Kaia (Anime) (Premium) 🌠',
+                        kaia: 'Kaia (Premium) 🌠',
                         hypernova_dengesiz: 'HyperNova Dengesiz (Kaotik) 🌪️'
                     }
                 }
