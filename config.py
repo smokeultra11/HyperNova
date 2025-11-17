@@ -7,7 +7,8 @@ API_URL = "https://openrouter.ai/api/v1/chat/completions"
 DATABASE_URL = os.getenv('DATABASE_URL')
 MODEL_DEFAULT = "meituan/longcat-flash-chat:free"
 DEVELOPER_USERNAME = "yuiouo"
-DEVELOPER_PASSWORD_HASHED = None  # database.py'de hash'lenecek
+DEVELOPER_PASSWORD = "TheLastGalaxy*"  # <-- Bunu ekle (plain text, hash app.py'de yapılacak)
+DEVELOPER_PASSWORD_HASHED = None  # Bu zaten var, silme
 SESSION_LIFETIME = timedelta(days=7)
 
 UI_TRANSLATIONS = {
