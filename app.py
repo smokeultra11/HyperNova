@@ -1,5 +1,6 @@
 import os
 import logging
+from flask import request  # <-- Bunu ekle (global request için)
 from flask import Flask, request, render_template, redirect, url_for
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -23,7 +24,7 @@ def before_request():
 
 def get_current_user():
     from database import SESSION_MAP
-    session_id = app.config['global_request'].cookies.get('session_id')
+    session_id = request.cookies.get('session_id')
     return SESSION_MAP.get(session_id)
 
 # Blueprints
