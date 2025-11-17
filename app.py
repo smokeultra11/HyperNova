@@ -1,4 +1,4 @@
-import os
+bu siteyi redesign et. sitenin kodu çok uzun: import os
 import logging
 import json
 import asyncio
@@ -127,10 +127,10 @@ DEFAULT_PERSONA = "hypernova"
 def get_db_connection():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL bulunamadı!")
-  
+   
     url = urlparse(DATABASE_URL)
     logger.info(f"DB Bağlantı Detayları: Host={url.hostname}, Port={url.port}, User={url.username}, DB={url.path[1:]}") # Debug log
-  
+   
     conn = psycopg2.connect(
         database=url.path[1:],
         user=url.username,
@@ -143,10 +143,10 @@ def get_db_connection():
 def init_db():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL environment variable'ı ayarlanmadı!")
-  
+   
     conn = get_db_connection()
     cursor = conn.cursor()
-  
+   
     # Kullanıcılar tablosu
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -156,7 +156,7 @@ def init_db():
             premium_until TIMESTAMP NOT NULL
         )
     ''')
-  
+   
     # Sohbetler tablosu (Kullanıcıya bağlı)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS chats (
@@ -168,7 +168,7 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
-  
+   
     conn.commit()
     cursor.close()
     conn.close()
@@ -276,7 +276,7 @@ def save_chat(username: str, chat_name: str, messages: list) -> str:
     user_id = get_user_id(username)
     if not user_id:
         return None
-  
+   
     chat_id = str(uuid.uuid4())
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -293,7 +293,7 @@ def get_user_chats(username: str) -> list:
     user_id = get_user_id(username)
     if not user_id:
         return []
-  
+   
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -305,7 +305,7 @@ def get_user_chats(username: str) -> list:
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
-  
+   
     chats = []
     for row in rows:
         chats.append({
@@ -320,7 +320,7 @@ def load_chat(username: str, chat_id: str) -> Optional[Dict]:
     user_id = get_user_id(username)
     if not user_id:
         return None
-  
+   
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -331,7 +331,7 @@ def load_chat(username: str, chat_id: str) -> Optional[Dict]:
     row = cursor.fetchone()
     cursor.close()
     conn.close()
-  
+   
     if row:
         return {
             'id': chat_id,
@@ -345,7 +345,7 @@ def delete_chat(username: str, chat_id: str) -> bool:
     user_id = get_user_id(username)
     if not user_id:
         return False
-  
+   
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -475,19 +475,19 @@ def save_chat_endpoint():
     username = get_current_user()
     if not username:
         return jsonify({"error": get_ui_translation(lang, 'auth_required')}), 401
-  
+   
     data = request.get_json()
     chat_name = data.get('name')
     messages = data.get('messages', [])
-  
+   
     if not chat_name or not messages:
         return jsonify({"error": get_ui_translation(lang, 'invalid_data')}), 400
-  
+   
     # Maksimum 5 sohbet kontrolü
     user_chats = get_user_chats(username)
     if len(user_chats) >= 5:
         return jsonify({"error": get_ui_translation(lang, 'max_chats')}), 400
-  
+   
     chat_id = save_chat(username, chat_name, messages)
     if chat_id:
         return jsonify({"message": get_ui_translation(lang, 'save_success'), "chat_id": chat_id}), 201
@@ -498,7 +498,7 @@ def load_chats_endpoint():
     username = get_current_user()
     if not username:
         return jsonify({"error": get_ui_translation(lang, 'auth_required')}), 401
-  
+   
     chats = get_user_chats(username)
     return jsonify({"chats": chats})
 @app.route('/load_chat/<chat_id>', methods=['GET'])
@@ -507,7 +507,7 @@ def load_chat_endpoint(chat_id):
     username = get_current_user()
     if not username:
         return jsonify({"error": get_ui_translation(lang, 'auth_required')}), 401
-  
+   
     chat = load_chat(username, chat_id)
     if chat:
         return jsonify({"chat": chat})
@@ -518,7 +518,7 @@ def delete_chat_endpoint(chat_id):
     username = get_current_user()
     if not username:
         return jsonify({"error": get_ui_translation(lang, 'auth_required')}), 401
-  
+   
     if delete_chat(username, chat_id):
         return jsonify({"message": get_ui_translation(lang, 'delete_success')})
     return jsonify({"error": get_ui_translation(lang, 'delete_error')}), 404
@@ -683,14 +683,14 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
             .container {{ max-width: 1000px; margin: auto; background: #374151; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }}
             h1 {{ color: #8b5cf6; border-bottom: 2px solid #8b5cf6; padding-bottom: 10px; margin-bottom: 20px; }}
             .message {{ background: #10b981; color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; }}
-          
+           
             /* Form Stili */
             form {{ background: #4b5563; padding: 20px; border-radius: 8px; margin-bottom: 30px; }}
             label {{ display: block; margin-bottom: 8px; font-weight: bold; color: #d1d5db; }}
             input[type="text"] {{ width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #6b7280; border-radius: 6px; box-sizing: border-box; background: #374151; color: #f9fafb; }}
             button {{ padding: 10px 20px; background-color: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }}
             button:hover {{ background-color: #a78bfa; }}
-          
+           
             /* Tablo Stili */
             h2 {{ color: #facc15; margin-top: 40px; border-bottom: 1px solid #6b7280; padding-bottom: 10px; }}
             table {{ width: 100%; border-collapse: collapse; margin-top: 15px; }}
@@ -703,26 +703,26 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
     <body>
         <div class="container">
             <h1> Yönetici Paneli - Premium Aktivasyon </h1>
-          
+           
             {'<div class="message">' + message + '</div>' if message else ''}
-          
+           
             <h2>30 Günlük Premium Aktifleştirme</h2>
             <form method="POST" action="/admin">
                 <input type="hidden" name="form_type" value="premium_grant">
-              
+               
                 <p style="color: #ef4444; font-weight: bold;">UYARI: Bu demo, kalıcı bir oturum tutmaz. Her işlemde yönetici kimlik bilgisi gereklidir!</p>
                 <label for="auth_username">Yönetici Kullanıcı Adı (Tekrar Giriş):</label>
                 <input type="text" id="auth_username" name="auth_username" value="{DEVELOPER_USERNAME}" required>
-              
+               
                 <label for="auth_password">Yönetici Şifresi (Tekrar Giriş):</label>
                 <input type="password" id="auth_password" name="auth_password" required>
-              
+               
                 <label for="target_username">Premium Aktifleştirilecek Kullanıcı Adı:</label>
                 <input type="text" id="target_username" name="target_username" placeholder="Kullanıcı Adı Girin" required>
-              
+               
                 <button type="submit">Premium Aktifleştir (30 Gün)</button>
             </form>
-          
+           
             <h2>Sistemdeki Tüm Kullanıcılar ({len(rows) if 'rows' in locals() else 0})</h2>
             <table>
                 <thead>
@@ -791,7 +791,7 @@ def index():
                     --kaia-text-color: #ffb6c1;
                 }
             }
-          
+           
             /* Temayı zorla (örneğin ayar butonuyla değiştirildiğinde) */
             body.light-theme {
                 --bg-color: #f0f2f5; --card-bg: #ffffff; --history-bg: #e5e5e5; --text-color: #1f2937;
@@ -822,7 +822,7 @@ def index():
                     --text-color: #fff0f5;
                 }
             }
-          
+           
             /* --- Genel Stiller (Değiştirildi) --- */
             body {
                 background-color: var(--bg-color);
@@ -993,7 +993,7 @@ def index():
                 transition: all 0.4s ease;
                 margin: 0; /* Reklamlar kaldırıldı, sidebar için */
             }
-          
+           
             /* YENİ: Oturum Açma/Kayıt Alanı */
             #auth-status {
                 display: flex;
@@ -1068,7 +1068,7 @@ def index():
                 display: flex;
                 align-items: center;
             }
-          
+           
             /* --- Persona Seçimi (YENİ) --- */
             #persona-select {
                 padding: 8px 12px;
@@ -1357,7 +1357,7 @@ def index():
         </style>
     </head>
     <body>
-      
+       
         <div id="authModal" class="modal" onclick="closeModal(event)">
             <div class="modal-content">
                 <h3 id="modalTitle">Login</h3>
@@ -1368,7 +1368,7 @@ def index():
                 <button style="background-color: #10b981; margin-top: 15px;" onclick="switchAuthMode()">Switch to Register</button>
             </div>
         </div>
-      
+       
         <div class="main-container">
             <!-- YENİ: Sidebar -->
             <div class="sidebar" id="sidebar">
@@ -1390,7 +1390,7 @@ def index():
                             <button id="lang-toggle" onclick="toggleLanguage()" title="Change Language">EN</button>
                         </div>
                     </div>
-                  
+                   
                     <div id="auth-status">
                         <span id="user-info">Not Logged In</span>
                         <div id="auth-buttons">
@@ -1399,7 +1399,7 @@ def index():
                             <button id="logout-button" style="display: none;" onclick="logout()">Logout</button>
                         </div>
                     </div>
-                  
+                   
                     <select id="persona-select" onchange="changePersona()">
                         <option value="hypernova">HyperNova (Standard) 🪐</option>
                         <option value="kaia" disabled>Kaia (Anime) (Premium) 🌠</option>
@@ -1407,7 +1407,7 @@ def index():
                     </select>
                     <div id="chat-history">
                     </div>
-                  
+                   
                     <div class="input-area">
                         <input type="text" id="message-input" placeholder="Ask a cosmic question..." onkeypress="if(event.key==='Enter') sendMessage()">
                         <button id="voice-button" class="action-button" onclick="toggleVoiceInput()" title="Voice Input">🎙️</button>
@@ -1423,7 +1423,7 @@ def index():
             let savedConversations = []; // Kaydedilen sohbetler dizisi (API'den yüklenir)
             let currentLoadedChatId = null; // Aktif yüklenen sohbet ID'si
             let isCurrentSaved = false; // Mevcut sohbet kaydedildi mi?
-          
+           
             const historyDiv = document.getElementById('chat-history');
             const input = document.getElementById('message-input');
             const sendButton = document.getElementById('send-button');
@@ -1835,7 +1835,7 @@ def index():
                 alertMessage(t.newConvStarted);
             }
             // --- AUTH FONKSİYONLARI (YENİ) ---
-          
+           
             function showModal(mode) {
                 const t = TRANSLATIONS[currentLang];
                 authMode = mode;
@@ -1859,37 +1859,37 @@ def index():
                 authMode = authMode === 'login' ? 'register' : 'login';
                 showModal(authMode);
             }
-          
+           
             async function handleAuth() {
                 const t = TRANSLATIONS[currentLang];
                 const username = document.getElementById('authUsername').value.trim();
                 const password = document.getElementById('authPassword').value;
                 const messageElement = document.getElementById('auth-message');
-              
+               
                 messageElement.style.display = 'none';
-              
+               
                 if (!username || !password) {
                     messageElement.textContent = t.emptyCred;
                     messageElement.style.display = 'block';
                     return;
                 }
-              
+               
                 const endpoint = authMode === 'login' ? '/login' : '/register';
-              
+               
                 try {
                     const response = await fetch(endpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ username, password })
                     });
-                  
+                   
                     const data = await response.json();
-                  
+                   
                     if (response.ok) {
                         messageElement.textContent = data.message;
                         messageElement.style.color = '#10b981';
                         messageElement.style.display = 'block';
-                      
+                       
                         // Giriş başarılıysa
                         if (authMode === 'login') {
                             // Cookie otomatik olarak ayarlandı
@@ -1907,14 +1907,14 @@ def index():
                         messageElement.style.color = '#ef4444';
                         messageElement.style.display = 'block';
                     }
-                  
+                   
                 } catch (error) {
                     messageElement.textContent = t.networkError;
                     messageElement.style.color = '#ef4444';
                     messageElement.style.display = 'block';
                 }
             }
-          
+           
             async function logout() {
                 try {
                     const response = await fetch('/logout', { method: 'POST' });
@@ -1935,30 +1935,30 @@ def index():
                     console.error("Çıkış hatası:", error);
                 }
             }
-          
+           
             async function checkAuthStatus() {
                 try {
                     const response = await fetch('/is_premium');
                     const data = await response.json();
-                  
+                   
                     isLoggedIn = data.logged_in;
                     currentUsername = data.username;
                     isPremium = data.is_premium;
-                  
+                   
                     const t = TRANSLATIONS[currentLang];
                     const authStatusDiv = document.getElementById('auth-status');
                     const userInfoSpan = document.getElementById('user-info');
                     const authButtonsDiv = document.getElementById('auth-buttons');
-                  
+                   
                     if (isLoggedIn) {
                         // Giriş yapmış
                         authButtonsDiv.innerHTML = `<button id="logout-button" onclick="logout()">${t.logout}</button>`;
-                      
+                       
                         let premiumInfo = '';
                         if (isPremium) {
                             premiumInfo = `<span class="premium-tag" title="Bitiş: ${data.premium_until}">⭐ PREMIUM</span>`;
                         }
-                      
+                       
                         userInfoSpan.innerHTML = `${t.welcome}<strong>${currentUsername}</strong>${premiumInfo}`;
                     } else {
                         // Giriş yapmamış
@@ -1971,12 +1971,12 @@ def index():
                         savedConversations = [];
                         updateSavedChatsList();
                     }
-                  
+                   
                 } catch (error) {
                     console.error("Kimlik doğrulama durumu kontrol edilemedi:", error);
                 }
             }
-          
+           
             // --- Tema Yönetimi (Aynı Kaldı) ---
             function applyTheme(theme) {
                 document.body.classList.remove('light-theme', 'dark-theme', 'kaia-theme');
@@ -1992,7 +1992,7 @@ def index():
                 currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
                 applyTheme(currentTheme);
             }
-          
+           
             // --- Persona Yönetimi (GÜNCELLENDİ) ---
             function updateUIForPersona() {
                 const t = TRANSLATIONS[currentLang];
@@ -2001,12 +2001,12 @@ def index():
                 const titleElement = document.querySelector('.title');
                 titleElement.textContent = greeting.title;
                 input.placeholder = greeting.placeholder;
-              
+               
                 // Tema güncellemesi
                 applyTheme(currentTheme);
                 // Select kutusunu doğru değere ayarla (Yüklemede gerekebilir)
                 personaSelect.value = persona;
-              
+               
                 // Kaia seçiliyse ve premium değilse zorla değiştir
                 if (persona === 'kaia' && !isPremium) {
                     alertMessage(t.kaiaPremiumReq);
@@ -2019,14 +2019,14 @@ def index():
             function changePersona() {
                 const t = TRANSLATIONS[currentLang];
                 const newPersona = personaSelect.value;
-              
+               
                 if (newPersona === 'kaia' && !isPremium) {
                     alertMessage(t.kaiaPremiumReq);
                     // Seçimi HyperNova'ya geri döndür
                     personaSelect.value = currentPersona;
                     return;
                 }
-              
+               
                 if (newPersona !== currentPersona) {
                     const desc = getPersonaDesc(newPersona);
                     const confirmMsg = t.changeConfirm.replace('%s', desc) + t.historyWillClear + '. ' + t.sure + '?';
@@ -2050,7 +2050,7 @@ def index():
                     if (!isSilent) alertMessage(t.thinkingClear);
                     return;
                 }
-              
+               
                 if (isSilent || confirm(t.clearConfirm)) {
                     conversation = [];
                     historyDiv.innerHTML = '';
@@ -2074,7 +2074,7 @@ def index():
                 if (text === '' || isThinking) return;
                 input.value = '';
                 displayMessage('user', text);
-              
+               
                 isThinking = true;
                 setControlsDisabled(true);
                 const typingIndicator = displayTypingIndicator();
@@ -2082,7 +2082,7 @@ def index():
                     // Konuşma geçmişine kullanıcı mesajını ekle
                     conversation.push({ role: 'user', content: text });
                     const apiMessages = conversation.map(msg => ({ role: msg.role, content: msg.content }));
-                  
+                   
                     const response = await fetch('/chat', {
                         method: 'POST',
                         headers: {
@@ -2091,13 +2091,13 @@ def index():
                         body: JSON.stringify({ messages: apiMessages, persona: currentPersona, lang: currentLang }),
                     });
                     removeTypingIndicator(typingIndicator);
-                  
+                   
                     if (response.status === 403) {
                          // Premium kısıtlaması (Kaia modu)
                          const errorData = await response.json();
                          const errorMessage = errorData.error;
                          displayMessage('bot', `${t.errorPrefix}${errorMessage}`, true);
-                       
+                        
                          // Premium gerektiren moddan ücretsiz moda geçişi zorla
                          if (errorData.force_persona === 'hypernova' && currentPersona === 'kaia') {
                               currentPersona = 'hypernova';
@@ -2106,7 +2106,7 @@ def index():
                               clearConversation(true);
                               alertMessage(t.kaiaForce);
                          }
-                       
+                        
                     } else if (!response.ok) {
                         const errorData = await response.json();
                         displayMessage('bot', `${t.errorPrefix}${t.aiConnectFailed}(${errorData.error || t.unknownError})`, true);
@@ -2114,7 +2114,7 @@ def index():
                         const data = await response.json();
                         const botResponse = data.response;
                         displayMessage('bot', botResponse, true);
-                      
+                       
                         // Konuşma geçmişine bot mesajını ekle
                         conversation.push({ role: 'assistant', content: botResponse });
                         isCurrentSaved = false; // Yeni mesaj eklenince kaydedilmemiş say
@@ -2139,7 +2139,7 @@ def index():
                     scrollToBottom();
                 }
             }
-          
+           
             function displayTypingIndicator() {
                 const typingDiv = document.createElement('div');
                 typingDiv.className = 'message bot typing-indicator';
@@ -2195,12 +2195,12 @@ def index():
                      document.head.appendChild(style);
                  }
             }
-          
+           
             function toggleVoiceInput() {
                 const t = TRANSLATIONS[currentLang];
                 alertMessage(t.voiceDisabled);
             }
-          
+           
             // Sayfa Yüklendiğinde
             document.addEventListener('DOMContentLoaded', async () => {
                 await loadUserChats(); // Kaydedilen sohbetleri yükle (giriş yapmadan boş)
@@ -2209,7 +2209,7 @@ def index():
                 updateUIForPersona(); // Persona UI güncelle
                 displayInitialGreeting(); // İlk mesajı göster
             });
-          
+           
             // Enter tuşuna basınca mesaj gönder
             input.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -2217,7 +2217,7 @@ def index():
                     sendMessage();
                 }
             });
-          
+           
             // Modaldan enter ile giriş/kayıt
             document.getElementById('authPassword').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
