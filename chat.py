@@ -4,6 +4,7 @@ from config import get_ui_translation, DEFAULT_PERSONA
 from utils import async_chat_completion, APIRequestError
 import asyncio
 import logging
+import bleach
 
 logger = logging.getLogger(__name__)
 chat_bp = Blueprint('chat', __name__)
