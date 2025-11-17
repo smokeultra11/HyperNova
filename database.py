@@ -15,7 +15,7 @@ def get_db_connection():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL bulunamadı!")
     # psycopg3: connect(dsn=...)
-    conn = psycopg.connect(dsn=DATABASE_URL)
+    conn = psycopg.connect(conninfo=DATABASE_URL)
     return conn
 
 def init_db():
