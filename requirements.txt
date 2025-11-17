@@ -8,3 +8,5 @@ aiohttp==3.9
 psycopg2-binary
 python-dotenv
 gunicorn
+bleach
+
