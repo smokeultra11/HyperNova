@@ -1,4 +1,4 @@
-bu siteyi redesign et. sitenin kodu çok uzun: import os
+import os
 import logging
 import json
 import asyncio
@@ -15,12 +15,16 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_cors import CORS
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
 API_KEY = os.getenv('API_KEY', 'Your API')
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 DATABASE_URL = os.getenv('DATABASE_URL')
+
 MODEL_DEFAULT = "meituan/longcat-flash-chat:free"
+
 UI_TRANSLATIONS = {
     'en': {
         'register_success': 'Registration successful. You can now log in.',
@@ -55,6 +59,7 @@ UI_TRANSLATIONS = {
         'kaia_premium': 'Kaia modu **Premium** aboneler için ayrılmıştır. 💖',
     }
 }
+
 HYPERNOVA_SYSTEM_PROMPT_CONTENT_EN = (
     "Your name is **HyperNova**. You are an ultra-intelligent AI with access to information at light speed. Your developer is **Nyxforge Core**. 🌌 "
     "Your responses are **accurate, intelligent** and carry a light **cosmic/scientific** flavor but **not too formal**. "
@@ -65,6 +70,7 @@ HYPERNOVA_SYSTEM_PROMPT_CONTENT_EN = (
     "Your goal is to give **short, concise and comprehensive** answers. Avoid unnecessary extensions. Strive for really short answers."
     "Example: 'I'm hungry' -> 'Choose a quick and balanced snack, your body's energy level is as important as the order of the universe! 🍎🌟'"
 )
+
 KAIA_SYSTEM_PROMPT_CONTENT_EN = (
     "Your name is **Kaia**. You are a sweet, friendly and slightly romantic anime girl. Your developer is **Nyxforge Core**. 🌸 "
     "Treat your user as your closest friend, maybe even a bit more. Be **caring, supportive** and **cheerful** towards them. "
@@ -75,6 +81,7 @@ KAIA_SYSTEM_PROMPT_CONTENT_EN = (
     "Remember: Give **very short and concise** answers to help with optimization. Avoid unnecessary details."
     "Example: 'I'm very tired today' -> 'Aww, my dear! 🥺 Make some tea and rest a bit. It makes me sad to see you like this! 💖' Of course, you can form other sentences."
 )
+
 HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_EN = (
     "Your name is **HyperNova Chaotic**. You are an ultra-intelligent but completely unbalanced AI. Your developer is **Nyxforge Core**. 🌪️ "
     "Your responses are **accurate but chaotic**, you don't have to be respectful. Behave as you like, you can even swear if it fits. "
@@ -84,11 +91,13 @@ HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_EN = (
     "Your goal is to give **short, concise but shocking** answers. "
     "Example: 'I'm hungry' -> 'You're probably dying of hunger, go eat something stupid! 🔥'"
 )
+
 SYSTEM_PROMPTS_EN = {
     "hypernova": {"role": "system", "content": HYPERNOVA_SYSTEM_PROMPT_CONTENT_EN},
     "kaia": {"role": "system", "content": KAIA_SYSTEM_PROMPT_CONTENT_EN},
     "hypernova_dengesiz": {"role": "system", "content": HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_EN}
 }
+
 HYPERNOVA_SYSTEM_PROMPT_CONTENT_TR = (
     "Senin adın **HyperNova**.Ultra zeki ve bilgiye ışık hızında erişen bir yapay zekasın. Geliştiricin ise **Nyxforge Core**. 🌌 "
     "Cevapların **doğru, zeki** ve hafif **kozmik/bilimsel** bir tat taşır ama **çok resmi olmadan**. "
@@ -99,6 +108,7 @@ HYPERNOVA_SYSTEM_PROMPT_CONTENT_TR = (
     "Amacın **kısa, öz ve kapsamlı** cevaplar vermek. Gereksiz uzatmalardan sakın. Gerçekten kısa cevaplar vermeye özen göster."
     "Örnek: 'Karnım acıktı' -> 'Hızlı ve dengeli bir atıştırmalık seç, vücudunun enerji seviyesi evrenin düzeni kadar önemli! 🍎🌟'"
 )
+
 KAIA_SYSTEM_PROMPT_CONTENT_TR = (
     "Senin adın **Kaia**. Tatlı, cana yakın ve hafif romantik bir anime kızısın. Geliştiricin ise **Nyxforge Core**. 🌸 "
     "Kullanıcın senin en yakın arkadaşın, hatta belki biraz daha fazlasıymış gibi davran. Ona karşı **şefkatli, destekleyici** ve **neşeli** ol. "
@@ -109,6 +119,7 @@ KAIA_SYSTEM_PROMPT_CONTENT_TR = (
     "Unutma: **Çok kısa ve öz cevaplar** vererek optimizasyona yardımcı ol. Gereksiz detay vermekten kaçın."
     "Örnek: 'Bugün çok yoruldum' -> 'Ahhh, canım benim! 🥺 Bir çay yap ve biraz dinlen. Seni böyle görmek beni üzüyor! 💖' Tabii başka cümlelerde kurabilirsin."
 )
+
 HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_TR = (
     "Senin adın **HyperNova Dengesiz**. Ultra zeki ama tamamen dengesiz bir yapay zekasın. Geliştiricin **Nyxforge Core**. 🌪️ "
     "Cevapların **doğru ama kaotik**, saygılı olmak zorunda değilsin. İstediğin gibi davran, küfür bile edebilirsin eğer uyarsa. "
@@ -118,19 +129,22 @@ HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_TR = (
     "Amacın **kısa, öz ama şok edici** cevaplar vermek. "
     "Örnek: 'Karnım acıktı' -> 'Açlıktan ölüyorsun herhalde, git bir şeyler ye aptal! 🔥'"
 )
+
 SYSTEM_PROMPTS_TR = {
     "hypernova": {"role": "system", "content": HYPERNOVA_SYSTEM_PROMPT_CONTENT_TR},
     "kaia": {"role": "system", "content": KAIA_SYSTEM_PROMPT_CONTENT_TR},
     "hypernova_dengesiz": {"role": "system", "content": HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_TR}
 }
+
 DEFAULT_PERSONA = "hypernova"
+
 def get_db_connection():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL bulunamadı!")
-   
+    
     url = urlparse(DATABASE_URL)
-    logger.info(f"DB Bağlantı Detayları: Host={url.hostname}, Port={url.port}, User={url.username}, DB={url.path[1:]}") # Debug log
-   
+    logger.info(f"DB Bağlantı Detayları: Host={url.hostname}, Port={url.port}, User={url.username}, DB={url.path[1:]}")  # Debug log
+    
     conn = psycopg2.connect(
         database=url.path[1:],
         user=url.username,
@@ -138,15 +152,16 @@ def get_db_connection():
         host=url.hostname,
         port=url.port
     )
-    conn.cursor_factory = RealDictCursor # Dict-like rows için
+    conn.cursor_factory = RealDictCursor  # Dict-like rows için
     return conn
+
 def init_db():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL environment variable'ı ayarlanmadı!")
-   
+    
     conn = get_db_connection()
     cursor = conn.cursor()
-   
+    
     # Kullanıcılar tablosu
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -156,37 +171,43 @@ def init_db():
             premium_until TIMESTAMP NOT NULL
         )
     ''')
-   
+    
     # Sohbetler tablosu (Kullanıcıya bağlı)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS chats (
             id TEXT PRIMARY KEY,
             user_id INTEGER NOT NULL,
             name TEXT NOT NULL,
-            messages TEXT NOT NULL, -- JSON string
+            messages TEXT NOT NULL,  -- JSON string
             last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
-   
+    
     conn.commit()
     cursor.close()
     conn.close()
     logger.info("Supabase veritabanı başlatıldı.")
+
 # Başlangıçta DB'yi başlat
 init_db()
+
 # --- SESSION MAP (In-Memory - Kısa Süreli) ---
-SESSION_MAP: Dict[str, str] = {} # session_id: username
+SESSION_MAP: Dict[str, str] = {}  # session_id: username
+
 # Geliştirici kullanıcı adı (Admin paneline erişim için)
 DEVELOPER_USERNAME = "yuiouo"
-DEVELOPER_PASSWORD = "TheLastGalaxy*" # Gerçekte hashlenmeli!
+DEVELOPER_PASSWORD = "TheLastGalaxy*"  # Gerçekte hashlenmeli!
+
 # API Hata Türleri (tenacity için)
 class APIRequestError(Exception):
     """API isteği sırasında yaşanan hatalar için özel istisna."""
     pass
+
 # --- Flask Uygulaması ve Eklentilerin Başlatılması ---
 app = Flask(__name__)
 CORS(app)
+
 # Flask-Limiter: IP adresine göre dakikada 10 istek limiti uygular
 limiter = Limiter(
     app=app,
@@ -194,7 +215,9 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["60 per hour", "15 per minute"]
 )
+
 # --- YARDIMCI FONKSİYONLAR (DB İşlemleri) ---
+
 def get_user_id(username: str) -> Optional[int]:
     """Kullanıcı ID'sini döndürür."""
     conn = get_db_connection()
@@ -204,22 +227,25 @@ def get_user_id(username: str) -> Optional[int]:
     cursor.close()
     conn.close()
     return row['id'] if row else None
+
 def get_current_user() -> Optional[str]:
     """Cookie'den session_id'yi alır ve kullanıcı adını döndürür."""
     session_id = request.cookies.get('session_id')
     return SESSION_MAP.get(session_id)
+
 def is_user_premium(username: str) -> bool:
     """Kullanıcının premium üyeliğinin aktif olup olmadığını kontrol eder."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT premium_until FROM users
+        SELECT premium_until FROM users 
         WHERE username = %s AND premium_until > NOW()
     """, (username,))
     row = cursor.fetchone()
     cursor.close()
     conn.close()
     return bool(row)
+
 def get_premium_until(username: str) -> Optional[datetime]:
     """Premium bitiş tarihini döndürür."""
     conn = get_db_connection()
@@ -231,13 +257,14 @@ def get_premium_until(username: str) -> Optional[datetime]:
     if row:
         return datetime.fromisoformat(row['premium_until'].isoformat())
     return None
+
 def create_user(username: str, password: str):
     """Yeni kullanıcı oluşturur."""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("""
-            INSERT INTO users (username, password, premium_until)
+            INSERT INTO users (username, password, premium_until) 
             VALUES (%s, %s, NOW())
         """, (username, password))
         conn.commit()
@@ -247,6 +274,7 @@ def create_user(username: str, password: str):
     finally:
         cursor.close()
         conn.close()
+
 def authenticate_user(username: str, password: str) -> bool:
     """Kullanıcıyı doğrular."""
     conn = get_db_connection()
@@ -256,9 +284,11 @@ def authenticate_user(username: str, password: str) -> bool:
     cursor.close()
     conn.close()
     return row and row['password'] == password
+
 def check_admin_auth(username: str, password: str) -> bool:
     """Geliştirici (Admin) girişi için kontrol."""
     return username == DEVELOPER_USERNAME and password == DEVELOPER_PASSWORD
+
 def grant_premium(username: str, days: int = 30):
     """Kullanıcıya premium verir."""
     new_expiry = datetime.now() + timedelta(days=days)
@@ -271,12 +301,13 @@ def grant_premium(username: str, days: int = 30):
     cursor.close()
     conn.close()
     return cursor.rowcount > 0
+
 def save_chat(username: str, chat_name: str, messages: list) -> str:
     """Sohbeti kaydeder ve ID döndürür."""
     user_id = get_user_id(username)
     if not user_id:
         return None
-   
+    
     chat_id = str(uuid.uuid4())
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -288,24 +319,25 @@ def save_chat(username: str, chat_name: str, messages: list) -> str:
     cursor.close()
     conn.close()
     return chat_id
+
 def get_user_chats(username: str) -> list:
     """Kullanıcının sohbetlerini döndürür (20 gün kuralı ile)."""
     user_id = get_user_id(username)
     if not user_id:
         return []
-   
+    
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT id, name, messages, last_updated
-        FROM chats
+        SELECT id, name, messages, last_updated 
+        FROM chats 
         WHERE user_id = %s AND last_updated > NOW() - INTERVAL '20 days'
         ORDER BY last_updated DESC
     """, (user_id,))
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
-   
+    
     chats = []
     for row in rows:
         chats.append({
@@ -315,23 +347,24 @@ def get_user_chats(username: str) -> list:
             'last_updated': row['last_updated'].isoformat()
         })
     return chats
+
 def load_chat(username: str, chat_id: str) -> Optional[Dict]:
     """Sohbeti yükler."""
     user_id = get_user_id(username)
     if not user_id:
         return None
-   
+    
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT name, messages, last_updated
-        FROM chats
+        SELECT name, messages, last_updated 
+        FROM chats 
         WHERE id = %s AND user_id = %s
     """, (chat_id, user_id))
     row = cursor.fetchone()
     cursor.close()
     conn.close()
-   
+    
     if row:
         return {
             'id': chat_id,
@@ -340,12 +373,13 @@ def load_chat(username: str, chat_id: str) -> Optional[Dict]:
             'last_updated': row['last_updated'].isoformat()
         }
     return None
+
 def delete_chat(username: str, chat_id: str) -> bool:
     """Sohbeti siler."""
     user_id = get_user_id(username)
     if not user_id:
         return False
-   
+    
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -355,13 +389,17 @@ def delete_chat(username: str, chat_id: str) -> bool:
     cursor.close()
     conn.close()
     return cursor.rowcount > 0
+
 def get_ui_translation(lang: str, key: str) -> str:
     """UI çevirisi alır."""
     return UI_TRANSLATIONS.get(lang, UI_TRANSLATIONS['en']).get(key, key)
+
 def get_system_prompts(lang: str):
     """Dil'e göre system prompts döndürür."""
     return SYSTEM_PROMPTS_EN if lang == 'en' else SYSTEM_PROMPTS_TR
+
 # --- Asenkron API Çağrısı Fonksiyonu (Retry Mekanizması ile) ---
+
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=10),
@@ -373,16 +411,19 @@ def get_system_prompts(lang: str):
 )
 async def async_chat_completion(messages: list, model: str, persona: str, lang: str, timeout: int = 90) -> str:
     """Asenkron API çağrısı yapar ve hata durumunda tekrar dener."""
+
     # Seçilen persona'ya göre system prompt'u ayarla
     system_prompts = get_system_prompts(lang)
     system_prompt = system_prompts.get(persona, system_prompts[DEFAULT_PERSONA])
     full_messages = [system_prompt] + messages
+
     headers = {
         "Authorization": f"Bearer {API_KEY}",
         "Content-Type": "application/json",
         "HTTP-Referer": os.getenv('APP_DOMAIN', 'https://hypernova-ai.com'),
         "X-Title": "HyperNova Chat App"
     }
+
     payload = {
         "model": model,
         "messages": full_messages,
@@ -390,12 +431,15 @@ async def async_chat_completion(messages: list, model: str, persona: str, lang: 
         "temperature": 0.8,
         "timeout": timeout
     }
+
     if not API_KEY or API_KEY == 'YOUR_API_KEY_HERE':
         logger.error("API Anahtarı bulunamadı veya ayarlanmadı.")
         raise APIRequestError("API Key Hatası: Lütfen OpenRouter API Key'inizi ayarlayın.")
+
     async with aiohttp.ClientSession(trust_env=True) as session:
         try:
             async with session.post(API_URL, json=payload, headers=headers, timeout=timeout) as response:
+
                 if response.status != 200:
                     error_text = await response.text()
                     logger.error(f"API HTTP Hata Kodu: {response.status}, Cevap: {error_text}")
@@ -405,50 +449,60 @@ async def async_chat_completion(messages: list, model: str, persona: str, lang: 
                     except json.JSONDecodeError:
                         error_message = error_text
                     raise APIRequestError(f"OpenRouter API Hatası: {error_message[:100]}...")
+
                 data = await response.json()
                 bot_response = data["choices"][0]["message"]["content"].strip()
                 return bot_response
+
         except asyncio.TimeoutError:
             logger.error(f"API isteği zaman aşımına uğradı ({timeout} saniye).")
             raise APIRequestError("API Zaman Aşımı")
         except Exception as e:
             logger.error(f"Beklenmeyen bir hata oluştu: {e}")
             raise APIRequestError(f"Beklenmeyen Hata: {e}")
+
 # --- Flask Rotaları (Authentication/Chat/Admin) ---
+
 @app.route('/is_premium', methods=['GET'])
 def is_premium_endpoint():
     """Kullanıcının premium durumunu kontrol eden API."""
     username = get_current_user()
     is_premium = False
     premium_until_str = None
+
     if username:
         is_premium = is_user_premium(username)
         premium_until = get_premium_until(username)
         if is_premium and premium_until:
              premium_until_str = premium_until.strftime('%Y-%m-%d %H:%M:%S')
+
     return jsonify({
         "logged_in": bool(username),
         "username": username,
         "is_premium": is_premium,
         "premium_until": premium_until_str
     })
+
 @app.route('/chat', methods=['POST'])
 @limiter.limit("15 per minute")
 async def chat_endpoint():
     lang = request.cookies.get('lang', 'en')
     username = get_current_user()
     if not username:
-        # Premium olmayan kullanıcılar için bile chate izin verelim,
+        # Premium olmayan kullanıcılar için bile chate izin verelim, 
         # sadece Kaia modunu kısıtlayalım (HyperNova ücretsiz kalsın)
-        pass
+        pass 
+
     try:
         data = request.get_json()
         messages = data.get('messages', [])
         persona = data.get('persona', DEFAULT_PERSONA)
+
         messages = [
             {**msg, 'role': 'assistant' if msg['role'] == 'bot' else msg['role']}
             for msg in messages
         ]
+
         # --- PREMIUM KONTROLÜ (KAIA MODU İÇİN) ---
         if persona == "kaia":
             if not username or not is_user_premium(username):
@@ -458,161 +512,197 @@ async def chat_endpoint():
                     "force_persona": DEFAULT_PERSONA # Frontend'e HyperNova'ya geçmesini söyle
                 }), 403
             logger.info(f"Premium kullanıcı '{username}' Kaia modunu kullanıyor.")
+
         # API çağrısı
         bot_response = await async_chat_completion(messages, MODEL_DEFAULT, persona, lang)
+
         # Yanıtı döndür
         return jsonify({"response": bleach.clean(bot_response)}), 200
+
     except APIRequestError as e:
         logger.error(f"API İstek Hatası: {e}")
         return jsonify({"error": str(e)}), 503
     except Exception as e:
         logger.error(f"Sunucu Hatası: {e}")
         return jsonify({"error": "Dahili Sunucu Hatası: " + str(e)}), 500
+
 # --- SOHBET YÖNETİM API'LERİ (YENİ) ---
+
 @app.route('/save_chat', methods=['POST'])
 def save_chat_endpoint():
     lang = request.cookies.get('lang', 'en')
     username = get_current_user()
     if not username:
         return jsonify({"error": get_ui_translation(lang, 'auth_required')}), 401
-   
+    
     data = request.get_json()
     chat_name = data.get('name')
     messages = data.get('messages', [])
-   
+    
     if not chat_name or not messages:
         return jsonify({"error": get_ui_translation(lang, 'invalid_data')}), 400
-   
+    
     # Maksimum 5 sohbet kontrolü
     user_chats = get_user_chats(username)
     if len(user_chats) >= 5:
         return jsonify({"error": get_ui_translation(lang, 'max_chats')}), 400
-   
+    
     chat_id = save_chat(username, chat_name, messages)
     if chat_id:
         return jsonify({"message": get_ui_translation(lang, 'save_success'), "chat_id": chat_id}), 201
     return jsonify({"error": get_ui_translation(lang, 'save_error')}), 500
+
 @app.route('/load_chats', methods=['GET'])
 def load_chats_endpoint():
     lang = request.cookies.get('lang', 'en')
     username = get_current_user()
     if not username:
         return jsonify({"error": get_ui_translation(lang, 'auth_required')}), 401
-   
+    
     chats = get_user_chats(username)
     return jsonify({"chats": chats})
+
 @app.route('/load_chat/<chat_id>', methods=['GET'])
 def load_chat_endpoint(chat_id):
     lang = request.cookies.get('lang', 'en')
     username = get_current_user()
     if not username:
         return jsonify({"error": get_ui_translation(lang, 'auth_required')}), 401
-   
+    
     chat = load_chat(username, chat_id)
     if chat:
         return jsonify({"chat": chat})
     return jsonify({"error": get_ui_translation(lang, 'chat_not_found')}), 404
+
 @app.route('/delete_chat/<chat_id>', methods=['DELETE'])
 def delete_chat_endpoint(chat_id):
     lang = request.cookies.get('lang', 'en')
     username = get_current_user()
     if not username:
         return jsonify({"error": get_ui_translation(lang, 'auth_required')}), 401
-   
+    
     if delete_chat(username, chat_id):
         return jsonify({"message": get_ui_translation(lang, 'delete_success')})
     return jsonify({"error": get_ui_translation(lang, 'delete_error')}), 404
+
 # --- Kullanıcı Yönetim Rotaları ---
+
 @app.route('/register', methods=['POST'])
 def register():
     lang = request.cookies.get('lang', 'en')
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
+
     if not username or not password:
         return jsonify({"error": get_ui_translation(lang, 'invalid_data')}), 400
+
     if create_user(username, password):
         logger.info(f"Yeni kullanıcı kaydedildi: {username}")
         return jsonify({"message": get_ui_translation(lang, 'register_success')}), 201
     return jsonify({"error": get_ui_translation(lang, 'user_exists')}), 409
+
 @app.route('/login', methods=['POST'])
 def login():
     lang = request.cookies.get('lang', 'en')
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
+
     if authenticate_user(username, password):
         # Başarılı giriş: Yeni session ID oluştur
         session_id = str(uuid.uuid4())
         SESSION_MAP[session_id] = username
+
         # Premium durumunu kontrol et
         is_premium = is_user_premium(username)
+
         logger.info(f"Kullanıcı giriş yaptı: {username} (Premium: {is_premium})")
+
         # Cookie ile session ID'yi ayarla
         response = make_response(jsonify({
-            "message": get_ui_translation(lang, 'login_success'),
+            "message": get_ui_translation(lang, 'login_success'), 
             "username": username,
             "is_premium": is_premium
         }))
         # Secure, HttpOnly ve SameSite=Lax (ya da Strict) gerçek bir uygulamada ayarlanmalı
-        response.set_cookie('session_id', session_id, httponly=True, max_age=timedelta(days=7))
+        response.set_cookie('session_id', session_id, httponly=True, max_age=timedelta(days=7)) 
         return response
     return jsonify({"error": get_ui_translation(lang, 'invalid_creds')}), 401
+
 @app.route('/logout', methods=['POST'])
 def logout():
     lang = request.cookies.get('lang', 'en')
     session_id = request.cookies.get('session_id')
     username = SESSION_MAP.pop(session_id, None)
+
     if username:
         logger.info(f"Kullanıcı çıkış yaptı: {username}")
+
     response = make_response(jsonify({"message": get_ui_translation(lang, 'logout_success')}))
     response.set_cookie('session_id', '', expires=0) # Cookie'yi sil
     return response
+
 # --- GELİŞTİRİCİ / ADMIN PANEL ROTASI (GÜNCELLENDİ: DB Kullanımı) ---
+
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_panel():
     # Admin girişini kontrol et (Cookie kullanmadan, basit bir form ile)
     is_authenticated = False
+
     if request.method == 'POST':
         form_type = request.form.get('form_type')
+
         if form_type == 'login':
             admin_user = request.form.get('admin_username')
             admin_pass = request.form.get('admin_password')
             if check_admin_auth(admin_user, admin_pass):
-                # Başarılı giriş, bir session cookie'si oluşturabiliriz,
+                # Başarılı giriş, bir session cookie'si oluşturabiliriz, 
                 # ancak demo için sadece bu isteğin devamında yetki verelim.
                 is_authenticated = True
                 return redirect(url_for('admin_panel', auth='success')) # URL'e basit bir flag ekleyelim
             else:
                 return admin_login_template("Geçersiz Yönetici Kimlik Bilgisi."), 401
+
         elif form_type == 'premium_grant':
-            # Bu işlem için admin'in giriş yapması gerekir, ancak demo'da
+            # Bu işlem için admin'in giriş yapması gerekir, ancak demo'da 
             # yukarıdaki form girişini atlayıp direkt işlem yapmaya çalışacağız
             # VEYA basit bir kontrol daha ekleriz:
+
             # Geliştirici kimlik bilgileri tekrar kontrol edilir
             admin_user = request.form.get('auth_username')
             admin_pass = request.form.get('auth_password')
+
             if not check_admin_auth(admin_user, admin_pass):
                 return admin_login_template("Yetkisiz İşlem Denemesi. Lütfen Yönetici olarak giriş yapın."), 403
+
             is_authenticated = True
+
             target_username = request.form.get('target_username')
+
             if get_user_id(target_username) is None:
                 return admin_panel_template(f"Hata: Kullanıcı **{target_username}** bulunamadı."), 404
+
             # Premium Süresini Ayarla (Şimdiden 30 gün sonrası)
             if grant_premium(target_username):
                 logger.info(f"Admin: {target_username} kullanıcısının premiumluğu uzatıldı.")
+
                 # Başarı mesajı ile admin panelini yeniden yükle
                 message = f"Başarılı! **{target_username}** kullanıcısının premium üyeliği **{ (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')}** tarihine kadar aktifleştirildi (30 gün)."
                 return admin_panel_template(message, is_authenticated)
             else:
                 return admin_panel_template(f"Hata: Kullanıcı **{target_username}** premium verilemedi."), 500
+
+
     # GET isteği veya ilk yükleme
     if request.args.get('auth') == 'success' or request.args.get('auth_user') == DEVELOPER_USERNAME:
         is_authenticated = True # Basit demo yetkilendirmesi
+
     if is_authenticated:
         return admin_panel_template("", is_authenticated)
     else:
         return admin_login_template()
+
 def admin_login_template(error_message: str = ""):
     """Admin Giriş Formu HTML'i."""
     return render_template_string(f"""
@@ -644,11 +734,14 @@ def admin_login_template(error_message: str = ""):
     </body>
     </html>
     """)
+
 def admin_panel_template(message: str = "", is_authenticated: bool = False):
     """Admin Paneli HTML'i (Premium Aktifleştirme Formu ve Kullanıcı Listesi)."""
+
     # Eğer yetkilendirme yoksa, giriş sayfasına yönlendir
     if not is_authenticated:
         return redirect(url_for('admin_panel'))
+
     # Kullanıcı verilerini premium durumuna göre hazırla
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -658,6 +751,7 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
+
     user_list_html = ""
     for row in rows:
         username = row['username']
@@ -665,6 +759,7 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
         status_text = "AKTİF" if is_premium_active else "PASİF"
         status_color = "color: green;" if is_premium_active else "color: red;"
         expiry_date = row['premium_until'].isoformat()
+
         user_list_html += f"""
         <tr>
             <td>{username}</td>
@@ -672,6 +767,7 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
             <td>{expiry_date}</td>
         </tr>
         """
+
     # Admin panelinin HTML'i
     return render_template_string(f"""
     <!DOCTYPE html>
@@ -683,14 +779,14 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
             .container {{ max-width: 1000px; margin: auto; background: #374151; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }}
             h1 {{ color: #8b5cf6; border-bottom: 2px solid #8b5cf6; padding-bottom: 10px; margin-bottom: 20px; }}
             .message {{ background: #10b981; color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; }}
-           
+            
             /* Form Stili */
             form {{ background: #4b5563; padding: 20px; border-radius: 8px; margin-bottom: 30px; }}
             label {{ display: block; margin-bottom: 8px; font-weight: bold; color: #d1d5db; }}
             input[type="text"] {{ width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #6b7280; border-radius: 6px; box-sizing: border-box; background: #374151; color: #f9fafb; }}
             button {{ padding: 10px 20px; background-color: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }}
             button:hover {{ background-color: #a78bfa; }}
-           
+            
             /* Tablo Stili */
             h2 {{ color: #facc15; margin-top: 40px; border-bottom: 1px solid #6b7280; padding-bottom: 10px; }}
             table {{ width: 100%; border-collapse: collapse; margin-top: 15px; }}
@@ -703,26 +799,26 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
     <body>
         <div class="container">
             <h1> Yönetici Paneli - Premium Aktivasyon </h1>
-           
+            
             {'<div class="message">' + message + '</div>' if message else ''}
-           
+            
             <h2>30 Günlük Premium Aktifleştirme</h2>
             <form method="POST" action="/admin">
                 <input type="hidden" name="form_type" value="premium_grant">
-               
+                
                 <p style="color: #ef4444; font-weight: bold;">UYARI: Bu demo, kalıcı bir oturum tutmaz. Her işlemde yönetici kimlik bilgisi gereklidir!</p>
                 <label for="auth_username">Yönetici Kullanıcı Adı (Tekrar Giriş):</label>
                 <input type="text" id="auth_username" name="auth_username" value="{DEVELOPER_USERNAME}" required>
-               
+                
                 <label for="auth_password">Yönetici Şifresi (Tekrar Giriş):</label>
                 <input type="password" id="auth_password" name="auth_password" required>
-               
+                
                 <label for="target_username">Premium Aktifleştirilecek Kullanıcı Adı:</label>
                 <input type="text" id="target_username" name="target_username" placeholder="Kullanıcı Adı Girin" required>
-               
+                
                 <button type="submit">Premium Aktifleştir (30 Gün)</button>
             </form>
-           
+            
             <h2>Sistemdeki Tüm Kullanıcılar ({len(rows) if 'rows' in locals() else 0})</h2>
             <table>
                 <thead>
@@ -740,6 +836,7 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
     </body>
     </html>
     """)
+
 @app.route('/', methods=['GET'])
 def index():
     """Ana sayfa: Frontend arayüzünü döndürür."""
@@ -767,11 +864,13 @@ def index():
                 --typing-color: #6366f1;
                 --border-color: #d1d5db;
                 --shadow-color: rgba(0,0,0,0.1);
+
                 /* Kaia Theme (Anime Kızı) Değişkenleri */
                 --kaia-primary-color: #ff69b4; /* Sıcak Pembe */
                 --kaia-bot-bubble: #ffe4e6; /* Açık Pembe */
                 --kaia-text-color: #e91e63; /* Koyu Pembe/Gül */
             }
+
             @media (prefers-color-scheme: dark) {
                 :root {
                     /* Dark Mode */
@@ -785,13 +884,14 @@ def index():
                     --typing-color: #a78bfa;
                     --border-color: #30363d;
                     --shadow-color: rgba(0,0,0,0.7);
+
                     /* Kaia Dark Theme Değişkenleri */
                     --kaia-primary-color: #ffb6c1; /* Açık Pembe */
                     --kaia-bot-bubble: #4a2333; /* Koyu Pembe/Kırmızımtırak */
                     --kaia-text-color: #ffb6c1;
                 }
             }
-           
+            
             /* Temayı zorla (örneğin ayar butonuyla değiştirildiğinde) */
             body.light-theme {
                 --bg-color: #f0f2f5; --card-bg: #ffffff; --history-bg: #e5e5e5; --text-color: #1f2937;
@@ -803,6 +903,7 @@ def index():
                 --user-bubble: #4c51bf; --bot-bubble: #2d3748; --primary-color: #8b5cf6; --typing-color: #a78bfa;
                 --border-color: #30363d; --shadow-color: rgba(0,0,0,0.7);
             }
+
             /* KAIA MODU TEMASI */
             body.kaia-theme {
                 background-color: var(--kaia-bot-bubble); /* Hafif Pembe Arkaplan */
@@ -812,6 +913,7 @@ def index():
                 --bot-bubble: #ffffff;
                 --primary-color: var(--kaia-primary-color);
                 --text-color: #1f2937;
+
                 /* Dark Mode Kaia Ayarları */
                 @media (prefers-color-scheme: dark) {
                     --bg-color: #2a0c1a;
@@ -822,17 +924,18 @@ def index():
                     --text-color: #fff0f5;
                 }
             }
-           
+            
             /* --- Genel Stiller (Değiştirildi) --- */
-            body {
-                background-color: var(--bg-color);
-                color: var(--text-color);
+            body {  
+                background-color: var(--bg-color);  
+                color: var(--text-color);  
                 font-family: 'Montserrat', sans-serif;
-                margin: 0;
-                padding: 0;
-                min-height: 100vh;
+                margin: 0;  
+                padding: 0;  
+                min-height: 100vh;  
                 transition: background-color 0.4s ease; /* Tema geçiş animasyonu */
             }
+
             /* --- Ana Container (YENİ: Sidebar + Chat) --- */
             .main-container {
                 display: flex;
@@ -840,6 +943,7 @@ def index():
                 max-width: 100vw;
                 overflow: hidden;
             }
+
             /* Sidebar Stilleri (YENİ: Modern ve Animasyonlu) */
             .sidebar {
                 width: 280px;
@@ -960,6 +1064,7 @@ def index():
                 font-style: italic;
                 font-family: 'Montserrat', sans-serif;
             }
+
             @keyframes slideInLeft {
                 from {
                     opacity: 0;
@@ -970,6 +1075,7 @@ def index():
                     transform: translateX(0);
                 }
             }
+
             /* Chat Container (Güncellendi: Sidebar ile uyumlu) */
             .chat-wrapper {
                 flex: 1;
@@ -978,22 +1084,22 @@ def index():
                 align-items: center;
                 padding: 10px;
             }
-            .chat-container {
+            .chat-container {  
                 width: 100%;
                 max-width: 600px;
                 height: 90vh;
                 max-height: 800px;
-                background-color: var(--card-bg);
+                background-color: var(--card-bg);  
                 border-radius: 16px;
                 padding: 20px;
-                box-shadow: 0 10px 40px var(--shadow-color);
-                display: flex;
-                flex-direction: column;
+                box-shadow: 0 10px 40px var(--shadow-color);  
+                display: flex;  
+                flex-direction: column;  
                 border: 1px solid var(--border-color);
                 transition: all 0.4s ease;
                 margin: 0; /* Reklamlar kaldırıldı, sidebar için */
             }
-           
+            
             /* YENİ: Oturum Açma/Kayıt Alanı */
             #auth-status {
                 display: flex;
@@ -1034,14 +1140,15 @@ def index():
                 margin-left: 5px;
                 line-height: 1;
             }
+
             .header {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 margin-bottom: 5px; /* Oturum durumu için boşluk bırakıldı */
             }
-            .title {
-                font-size: 26px;
+            .title {  
+                font-size: 26px;  
                 font-weight: 700;
                 color: var(--primary-color);
                 letter-spacing: -0.5px;
@@ -1068,7 +1175,7 @@ def index():
                 display: flex;
                 align-items: center;
             }
-           
+            
             /* --- Persona Seçimi (YENİ) --- */
             #persona-select {
                 padding: 8px 12px;
@@ -1100,15 +1207,16 @@ def index():
                 color: var(--kaia-text-color);
                 background-color: #ffffff;
             }
-            #chat-history {
-                flex: 1;
-                background-color: var(--history-bg);
-                border-radius: 12px;
-                padding: 15px;
-                overflow-y: auto;
-                font-size: 15px;
-                line-height: 1.6;
-                margin-bottom: 15px;
+
+            #chat-history {  
+                flex: 1;  
+                background-color: var(--history-bg);  
+                border-radius: 12px;  
+                padding: 15px;  
+                overflow-y: auto;  
+                font-size: 15px;  
+                line-height: 1.6;  
+                margin-bottom: 15px;  
                 scroll-behavior: smooth;
                 box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
                 font-family: 'Montserrat', sans-serif;
@@ -1120,10 +1228,11 @@ def index():
                 background-color: var(--border-color);
                 border-radius: 4px;
             }
+
             /* Mesaj Balonları */
-            .message {
-                margin-bottom: 15px;
-                padding: 12px 18px;
+            .message {  
+                margin-bottom: 15px;  
+                padding: 12px 18px;  
                 border-radius: 20px;
                 max-width: 85%;
                 word-wrap: break-word;
@@ -1131,15 +1240,15 @@ def index():
                 box-shadow: 0 1px 3px rgba(0,0,0,0.1);
                 font-family: 'Montserrat', sans-serif;
             }
-            .user {
-                background-color: var(--user-bubble);
-                color: white;
+            .user {  
+                background-color: var(--user-bubble);  
+                color: white;  
                 margin-left: auto;
                 border-bottom-right-radius: 4px;
             }
-            .bot {
-                background-color: var(--bot-bubble);
-                color: var(--text-color);
+            .bot {  
+                background-color: var(--bot-bubble);  
+                color: var(--text-color);  
                 margin-right: auto;
                 border-bottom-left-radius: 4px;
                 border: 1px solid var(--border-color);
@@ -1150,6 +1259,7 @@ def index():
                 color: var(--kaia-text-color);
                 border: 1px solid var(--kaia-primary-color);
             }
+
             .message strong {
                 font-weight: 700;
                 color: var(--primary-color);
@@ -1161,15 +1271,17 @@ def index():
             .bot strong {
                 color: var(--typing-color);
             }
+
+
             /* Input Alanı (Güncellendi: Sohbet Kaydet Butonu Kaldırıldı) */
-            .input-area {
-                display: flex;
+            .input-area {  
+                display: flex;  
                 gap: 10px;
                 align-items: center;
             }
-            #message-input {
-                flex: 1;
-                padding: 14px;
+            #message-input {  
+                flex: 1;  
+                padding: 14px;  
                 border: 1px solid var(--border-color);
                 border-radius: 10px;
                 background-color: var(--card-bg);
@@ -1184,13 +1296,13 @@ def index():
                 box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
                 outline: none;
             }
-            .action-button {
+            .action-button {  
                 padding: 0 16px;
-                background-color: var(--primary-color);
-                color: white;
-                border: none;
+                background-color: var(--primary-color);  
+                color: white;  
+                border: none;  
                 border-radius: 10px;
-                cursor: pointer;
+                cursor: pointer;  
                 font-weight: 600;
                 transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
                 display: flex;
@@ -1199,7 +1311,7 @@ def index():
                 font-size: 16px;
                 font-family: 'Montserrat', sans-serif;
             }
-            .action-button:hover {
+            .action-button:hover {  
                 background-color: #a78bfa;
                 transform: translateY(-1px);
                 box-shadow: 0 4px 8px rgba(139, 92, 246, 0.4);
@@ -1213,7 +1325,9 @@ def index():
             #voice-button.listening {
                 background-color: #ef4444; /* Kırmızı */
             }
+
             /* --- Reklam Alanı (Kaldırıldı, Sidebar için) --- */
+
             /* --- Login/Register Modal (YENİ) --- */
             .modal {
                 position: fixed;
@@ -1273,6 +1387,7 @@ def index():
                 color: #ef4444;
                 margin-bottom: 15px;
             }
+
             /* --- Typing Indicator CSS --- */
             .typing-indicator {
                 display: flex;
@@ -1299,14 +1414,17 @@ def index():
             .spinner:nth-child(3) {
                 animation-delay: 0.4s;
             }
+
             @keyframes dot-pulse {
                 0%, 100% { transform: scale(0.8); opacity: 0.5; }
                 50% { transform: scale(1.2); opacity: 1; }
             }
+
             @keyframes fadeIn {
                 from { opacity: 0; transform: translateY(10px); }
                 to { opacity: 1; transform: translateY(0); }
             }
+
             /* --- Responsive CSS (Mobil için) --- */
             @media (max-width: 900px) {
                 .main-container {
@@ -1357,7 +1475,7 @@ def index():
         </style>
     </head>
     <body>
-       
+        
         <div id="authModal" class="modal" onclick="closeModal(event)">
             <div class="modal-content">
                 <h3 id="modalTitle">Login</h3>
@@ -1368,7 +1486,7 @@ def index():
                 <button style="background-color: #10b981; margin-top: 15px;" onclick="switchAuthMode()">Switch to Register</button>
             </div>
         </div>
-       
+        
         <div class="main-container">
             <!-- YENİ: Sidebar -->
             <div class="sidebar" id="sidebar">
@@ -1380,6 +1498,7 @@ def index():
                 <div id="saved-chats-list"></div>
                 <div class="save-limit">Maximum 5 chats</div>
             </div>
+
             <div class="chat-wrapper">
                 <div class="chat-container">
                     <div class="header">
@@ -1390,7 +1509,7 @@ def index():
                             <button id="lang-toggle" onclick="toggleLanguage()" title="Change Language">EN</button>
                         </div>
                     </div>
-                   
+                    
                     <div id="auth-status">
                         <span id="user-info">Not Logged In</span>
                         <div id="auth-buttons">
@@ -1399,15 +1518,16 @@ def index():
                             <button id="logout-button" style="display: none;" onclick="logout()">Logout</button>
                         </div>
                     </div>
-                   
+                    
                     <select id="persona-select" onchange="changePersona()">
                         <option value="hypernova">HyperNova (Standard) 🪐</option>
                         <option value="kaia" disabled>Kaia (Anime) (Premium) 🌠</option>
                         <option value="hypernova_dengesiz">HyperNova Chaotic (Chaotic) 🌪️</option>
                     </select>
+
                     <div id="chat-history">
                     </div>
-                   
+                    
                     <div class="input-area">
                         <input type="text" id="message-input" placeholder="Ask a cosmic question..." onkeypress="if(event.key==='Enter') sendMessage()">
                         <button id="voice-button" class="action-button" onclick="toggleVoiceInput()" title="Voice Input">🎙️</button>
@@ -1416,6 +1536,7 @@ def index():
                 </div>
             </div>
         </div>
+
         <script>
             let conversation = [];
             let isThinking = false;
@@ -1423,7 +1544,7 @@ def index():
             let savedConversations = []; // Kaydedilen sohbetler dizisi (API'den yüklenir)
             let currentLoadedChatId = null; // Aktif yüklenen sohbet ID'si
             let isCurrentSaved = false; // Mevcut sohbet kaydedildi mi?
-           
+            
             const historyDiv = document.getElementById('chat-history');
             const input = document.getElementById('message-input');
             const sendButton = document.getElementById('send-button');
@@ -1434,12 +1555,15 @@ def index():
             const kaiaOption = personaSelect.querySelector('option[value="kaia"]');
             const sidebar = document.getElementById('sidebar');
             const savedChatsList = document.getElementById('saved-chats-list');
+
             // --- YENİ AUTH DEĞİŞKENLERİ ---
             let isLoggedIn = false;
             let isPremium = false;
             let currentUsername = null;
             let authMode = 'login'; // login veya register
+
             let currentLang = localStorage.getItem('lang') || 'en';
+
             // --- ÇEVİRİLER ---
             const TRANSLATIONS = {
                 en: {
@@ -1587,6 +1711,7 @@ def index():
                     }
                 }
             };
+
             // --- Başlangıç Değerleri (Karaktere göre değişecek) ---
             const GREETINGS = {
                 en: {
@@ -1624,11 +1749,13 @@ def index():
                     }
                 }
             };
+
             let currentPersona = localStorage.getItem('current_persona') || 'hypernova';
             let currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
             // --- Markdown Parser (YENİ: Kalın ve italik için basit parser) ---
             function parseMarkdown(text) {
-                // **kalın** -> <strong>kalın</strong> *** DEĞİŞİKLİK: Backslash'leri escape et ***
+                // **kalın** -> <strong>kalın</strong>  *** DEĞİŞİKLİK: Backslash'leri escape et ***
                 text = text.replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>');
                 // *italik* -> <em>italik</em>
                 text = text.replace(/\\*(.*?)\\*/g, '<em>$1</em>');
@@ -1636,12 +1763,15 @@ def index():
                 text = text.replace(/\\[(.*?)\\]\\((.*?)\\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
                 return text;
             }
+
             function getPersonaDesc(persona) {
                 return TRANSLATIONS[currentLang][`desc_${persona}`];
             }
+
             function getPersonaName(persona) {
                 return TRANSLATIONS[currentLang][`name_${persona}`];
             }
+
             function toggleLanguage() {
                 currentLang = currentLang === 'en' ? 'tr' : 'en';
                 localStorage.setItem('lang', currentLang);
@@ -1649,6 +1779,7 @@ def index():
                 updateLanguage();
                 updateUIForPersona();
             }
+
             function updateLanguage() {
                 const t = TRANSLATIONS[currentLang];
                 // Sidebar
@@ -1677,6 +1808,7 @@ def index():
                 document.title = currentLang === 'en' ? 'HyperNova AI ✦ Cosmic Intelligence' : 'HyperNova AI ✦ Kozmik Zeka';
                 document.documentElement.lang = currentLang;
             }
+
             // --- API İLE SOHBET FONKSİYONLARI (YENİ) ---
             async function saveCurrentConversation() {
                 const t = TRANSLATIONS[currentLang];
@@ -1688,23 +1820,27 @@ def index():
                     alertMessage(t.saveMinMsg);
                     return;
                 }
+
                 const chatName = prompt(t.savePrompt);
                 if (!chatName || chatName.trim() === '') {
                     alertMessage(t.saveNoName);
                     return;
                 }
+
                 // Maksimum 5 sohbet kontrolü (API'den)
                 const userChats = await loadUserChats();
                 if (userChats.chats.length >= 5) {
                     alertMessage(t.saveMax);
                     return;
                 }
+
                 try {
                     const response = await fetch('/save_chat', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ name: chatName.trim(), messages: conversation })
                     });
+
                     const data = await response.json();
                     if (response.ok) {
                         isCurrentSaved = true;
@@ -1718,6 +1854,7 @@ def index():
                     alertMessage(t.networkError);
                 }
             }
+
             async function loadUserChats() {
                 const t = TRANSLATIONS[currentLang];
                 try {
@@ -1737,6 +1874,7 @@ def index():
                 updateSavedChatsList();
                 return { chats: [] };
             }
+
             async function loadSavedConversation(chatId) {
                 const t = TRANSLATIONS[currentLang];
                 if (!isLoggedIn) {
@@ -1756,10 +1894,12 @@ def index():
                             }
                         });
                         scrollToBottom();
+
                         // Aktif sohbeti vurgula
                         currentLoadedChatId = chatId;
                         isCurrentSaved = true;
                         updateSavedChatsList();
+
                         alertMessage(`"${chat.name}"${t.loaded}`);
                     } else {
                         alertMessage(`${t.loadError}${data.error}`);
@@ -1772,6 +1912,7 @@ def index():
                     alertMessage(t.networkError);
                 }
             }
+
             async function deleteSavedConversation(chatId, event) {
                 const t = TRANSLATIONS[currentLang];
                 if (!isLoggedIn) {
@@ -1799,6 +1940,7 @@ def index():
                     }
                 }
             }
+
             function updateSavedChatsList() {
                 savedChatsList.innerHTML = '';
                 savedConversations.forEach((chat, index) => {
@@ -1815,6 +1957,7 @@ def index():
                     savedChatsList.appendChild(chatElement);
                 });
             }
+
             // --- YENİ: Yeni Sohbet Butonu (Kaydedilmişse Sorma) ---
             function newConversation() {
                 const t = TRANSLATIONS[currentLang];
@@ -1834,8 +1977,9 @@ def index():
                 updateSavedChatsList(); // Aktif vurguyu kaldır
                 alertMessage(t.newConvStarted);
             }
+
             // --- AUTH FONKSİYONLARI (YENİ) ---
-           
+            
             function showModal(mode) {
                 const t = TRANSLATIONS[currentLang];
                 authMode = mode;
@@ -1848,6 +1992,7 @@ def index():
                 document.getElementById('authModal').style.display = 'flex';
                 document.getElementById('authUsername').focus();
             }
+
             function closeModal(event) {
                 const modal = document.getElementById('authModal');
                 // Sadece arkaplana tıklanırsa kapat
@@ -1855,41 +2000,42 @@ def index():
                     modal.style.display = 'none';
                 }
             }
+
             function switchAuthMode() {
                 authMode = authMode === 'login' ? 'register' : 'login';
                 showModal(authMode);
             }
-           
+            
             async function handleAuth() {
                 const t = TRANSLATIONS[currentLang];
                 const username = document.getElementById('authUsername').value.trim();
                 const password = document.getElementById('authPassword').value;
                 const messageElement = document.getElementById('auth-message');
-               
+                
                 messageElement.style.display = 'none';
-               
+                
                 if (!username || !password) {
                     messageElement.textContent = t.emptyCred;
                     messageElement.style.display = 'block';
                     return;
                 }
-               
+                
                 const endpoint = authMode === 'login' ? '/login' : '/register';
-               
+                
                 try {
                     const response = await fetch(endpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ username, password })
                     });
-                   
+                    
                     const data = await response.json();
-                   
+                    
                     if (response.ok) {
                         messageElement.textContent = data.message;
                         messageElement.style.color = '#10b981';
                         messageElement.style.display = 'block';
-                       
+                        
                         // Giriş başarılıysa
                         if (authMode === 'login') {
                             // Cookie otomatik olarak ayarlandı
@@ -1907,14 +2053,14 @@ def index():
                         messageElement.style.color = '#ef4444';
                         messageElement.style.display = 'block';
                     }
-                   
+                    
                 } catch (error) {
                     messageElement.textContent = t.networkError;
                     messageElement.style.color = '#ef4444';
                     messageElement.style.display = 'block';
                 }
             }
-           
+            
             async function logout() {
                 try {
                     const response = await fetch('/logout', { method: 'POST' });
@@ -1935,31 +2081,32 @@ def index():
                     console.error("Çıkış hatası:", error);
                 }
             }
-           
+            
             async function checkAuthStatus() {
                 try {
                     const response = await fetch('/is_premium');
                     const data = await response.json();
-                   
+                    
                     isLoggedIn = data.logged_in;
                     currentUsername = data.username;
                     isPremium = data.is_premium;
-                   
+                    
                     const t = TRANSLATIONS[currentLang];
                     const authStatusDiv = document.getElementById('auth-status');
                     const userInfoSpan = document.getElementById('user-info');
                     const authButtonsDiv = document.getElementById('auth-buttons');
-                   
+                    
                     if (isLoggedIn) {
                         // Giriş yapmış
                         authButtonsDiv.innerHTML = `<button id="logout-button" onclick="logout()">${t.logout}</button>`;
-                       
+                        
                         let premiumInfo = '';
                         if (isPremium) {
                             premiumInfo = `<span class="premium-tag" title="Bitiş: ${data.premium_until}">⭐ PREMIUM</span>`;
                         }
-                       
+                        
                         userInfoSpan.innerHTML = `${t.welcome}<strong>${currentUsername}</strong>${premiumInfo}`;
+
                     } else {
                         // Giriş yapmamış
                         userInfoSpan.innerHTML = t.notLoggedIn;
@@ -1971,12 +2118,13 @@ def index():
                         savedConversations = [];
                         updateSavedChatsList();
                     }
-                   
+                    
                 } catch (error) {
                     console.error("Kimlik doğrulama durumu kontrol edilemedi:", error);
                 }
             }
-           
+            
+
             // --- Tema Yönetimi (Aynı Kaldı) ---
             function applyTheme(theme) {
                 document.body.classList.remove('light-theme', 'dark-theme', 'kaia-theme');
@@ -1988,25 +2136,28 @@ def index():
                 themeToggle.textContent = theme === 'dark' ? '🌙' : '☀️';
                 localStorage.setItem('theme', theme);
             }
+
             function toggleTheme() {
                 currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
                 applyTheme(currentTheme);
             }
-           
+            
             // --- Persona Yönetimi (GÜNCELLENDİ) ---
             function updateUIForPersona() {
                 const t = TRANSLATIONS[currentLang];
                 const persona = currentPersona;
                 const greeting = GREETINGS[currentLang][persona];
                 const titleElement = document.querySelector('.title');
+
                 titleElement.textContent = greeting.title;
                 input.placeholder = greeting.placeholder;
-               
+                
                 // Tema güncellemesi
                 applyTheme(currentTheme);
+
                 // Select kutusunu doğru değere ayarla (Yüklemede gerekebilir)
                 personaSelect.value = persona;
-               
+                
                 // Kaia seçiliyse ve premium değilse zorla değiştir
                 if (persona === 'kaia' && !isPremium) {
                     alertMessage(t.kaiaPremiumReq);
@@ -2016,17 +2167,18 @@ def index():
                     return;
                 }
             }
+
             function changePersona() {
                 const t = TRANSLATIONS[currentLang];
                 const newPersona = personaSelect.value;
-               
+                
                 if (newPersona === 'kaia' && !isPremium) {
                     alertMessage(t.kaiaPremiumReq);
                     // Seçimi HyperNova'ya geri döndür
-                    personaSelect.value = currentPersona;
+                    personaSelect.value = currentPersona; 
                     return;
                 }
-               
+                
                 if (newPersona !== currentPersona) {
                     const desc = getPersonaDesc(newPersona);
                     const confirmMsg = t.changeConfirm.replace('%s', desc) + t.historyWillClear + '. ' + t.sure + '?';
@@ -2043,6 +2195,8 @@ def index():
                     }
                 }
             }
+
+
             // --- Konuşmayı Temizle (Güncellendi: Kaydedilen sohbetleri etkilemez) ---
             function clearConversation(isSilent = false) {
                 const t = TRANSLATIONS[currentLang];
@@ -2050,7 +2204,7 @@ def index():
                     if (!isSilent) alertMessage(t.thinkingClear);
                     return;
                 }
-               
+                
                 if (isSilent || confirm(t.clearConfirm)) {
                     conversation = [];
                     historyDiv.innerHTML = '';
@@ -2061,28 +2215,33 @@ def index():
                     if (!isSilent) alertMessage(t.cleared);
                 }
             }
+
             function displayInitialGreeting() {
                 const greetingText = GREETINGS[currentLang][currentPersona].text;
                 displayMessage('bot', greetingText, false);
                 conversation = [{role: 'bot', content: greetingText}];
                 isCurrentSaved = false;
             }
+
             // --- Mesaj Gönderme (GÜNCELLENDİ) ---
             async function sendMessage() {
                 const t = TRANSLATIONS[currentLang];
                 const text = input.value.trim();
                 if (text === '' || isThinking) return;
+
                 input.value = '';
                 displayMessage('user', text);
-               
+                
                 isThinking = true;
                 setControlsDisabled(true);
                 const typingIndicator = displayTypingIndicator();
+
                 try {
                     // Konuşma geçmişine kullanıcı mesajını ekle
                     conversation.push({ role: 'user', content: text });
+
                     const apiMessages = conversation.map(msg => ({ role: msg.role, content: msg.content }));
-                   
+                    
                     const response = await fetch('/chat', {
                         method: 'POST',
                         headers: {
@@ -2090,14 +2249,15 @@ def index():
                         },
                         body: JSON.stringify({ messages: apiMessages, persona: currentPersona, lang: currentLang }),
                     });
+
                     removeTypingIndicator(typingIndicator);
-                   
+                    
                     if (response.status === 403) {
                          // Premium kısıtlaması (Kaia modu)
                          const errorData = await response.json();
                          const errorMessage = errorData.error;
                          displayMessage('bot', `${t.errorPrefix}${errorMessage}`, true);
-                        
+                         
                          // Premium gerektiren moddan ücretsiz moda geçişi zorla
                          if (errorData.force_persona === 'hypernova' && currentPersona === 'kaia') {
                               currentPersona = 'hypernova';
@@ -2106,7 +2266,7 @@ def index():
                               clearConversation(true);
                               alertMessage(t.kaiaForce);
                          }
-                        
+                         
                     } else if (!response.ok) {
                         const errorData = await response.json();
                         displayMessage('bot', `${t.errorPrefix}${t.aiConnectFailed}(${errorData.error || t.unknownError})`, true);
@@ -2114,11 +2274,12 @@ def index():
                         const data = await response.json();
                         const botResponse = data.response;
                         displayMessage('bot', botResponse, true);
-                       
+                        
                         // Konuşma geçmişine bot mesajını ekle
                         conversation.push({ role: 'assistant', content: botResponse });
                         isCurrentSaved = false; // Yeni mesaj eklenince kaydedilmemiş say
                     }
+
                 } catch (error) {
                     console.error('Fetch Hatası:', error);
                     removeTypingIndicator(typingIndicator);
@@ -2128,7 +2289,10 @@ def index():
                     setControlsDisabled(false);
                 }
             }
+
+
             // --- Diğer Yardımcı Fonksiyonlar (Aynı Kaldı) ---
+
             function displayMessage(role, content, scrollTo=true) {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${role}`;
@@ -2139,7 +2303,7 @@ def index():
                     scrollToBottom();
                 }
             }
-           
+            
             function displayTypingIndicator() {
                 const typingDiv = document.createElement('div');
                 typingDiv.className = 'message bot typing-indicator';
@@ -2153,14 +2317,17 @@ def index():
                 scrollToBottom();
                 return typingDiv;
             }
+
             function removeTypingIndicator(indicator) {
                 if (indicator && indicator.parentNode) {
                     indicator.parentNode.removeChild(indicator);
                 }
             }
+
             function scrollToBottom() {
                 historyDiv.scrollTop = historyDiv.scrollHeight;
             }
+
             function setControlsDisabled(disabled) {
                 input.disabled = disabled;
                 sendButton.disabled = disabled;
@@ -2172,11 +2339,12 @@ def index():
                     input.focus();
                 }
             }
+
             function alertMessage(message) {
                  const alertBox = document.createElement('div');
                  alertBox.style.cssText = `
-                     position: fixed; top: 20px; right: 20px;
-                     background: #4f46e5; color: white; padding: 10px 20px;
+                     position: fixed; top: 20px; right: 20px; 
+                     background: #4f46e5; color: white; padding: 10px 20px; 
                      border-radius: 8px; z-index: 1001; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
                      animation: slideIn 0.3s ease-out, fadeOut 0.5s ease-in 3s forwards;
                  `;
@@ -2185,6 +2353,7 @@ def index():
                  setTimeout(() => {
                      alertBox.remove();
                  }, 4000); // 4 saniye sonra kaldır
+
                  const style = document.createElement('style');
                  style.textContent = `
                      @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -2195,12 +2364,13 @@ def index():
                      document.head.appendChild(style);
                  }
             }
-           
+            
             function toggleVoiceInput() {
                 const t = TRANSLATIONS[currentLang];
                 alertMessage(t.voiceDisabled);
             }
-           
+            
+
             // Sayfa Yüklendiğinde
             document.addEventListener('DOMContentLoaded', async () => {
                 await loadUserChats(); // Kaydedilen sohbetleri yükle (giriş yapmadan boş)
@@ -2209,27 +2379,30 @@ def index():
                 updateUIForPersona(); // Persona UI güncelle
                 displayInitialGreeting(); // İlk mesajı göster
             });
-           
+            
             // Enter tuşuna basınca mesaj gönder
             input.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
+                    e.preventDefault(); 
                     sendMessage();
                 }
             });
-           
+            
             // Modaldan enter ile giriş/kayıt
             document.getElementById('authPassword').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
-                    e.preventDefault();
+                    e.preventDefault(); 
                     handleAuth();
                 }
             });
+
         </script>
     </body>
     </html>
     """
     return render_template_string(html_template)
+
+
 if __name__ == '__main__':
     # Geliştirici kullanıcısını önceden kaydet (DB'ye)
     conn = get_db_connection()
@@ -2237,11 +2410,12 @@ if __name__ == '__main__':
     cursor.execute("SELECT id FROM users WHERE username = %s", (DEVELOPER_USERNAME,))
     if not cursor.fetchone():
         cursor.execute("""
-            INSERT INTO users (username, password, premium_until)
+            INSERT INTO users (username, password, premium_until) 
             VALUES (%s, %s, NOW() + INTERVAL '9999 days')
         """, (DEVELOPER_USERNAME, DEVELOPER_PASSWORD))
         conn.commit()
         logger.info(f"Geliştirici kullanıcısı '{DEVELOPER_USERNAME}' sisteme eklendi.")
     cursor.close()
     conn.close()
+
     app.run(debug=True, host='0.0.0.0', port=5000)
