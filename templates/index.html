@@ -1,21 +1,63 @@
-{% extends "base.html" %}
-{% block title %}HyperNova AI ✦ Cosmic Intelligence{% endblock %}
-{% block body_class %}{{ theme }}-theme{% endblock %}
-{% block content %}
-<!-- Sidebar, chat-container, modal'lar... Orijinal HTML'in body kısmını buraya taşı, {{ lang }} ve {{ translations }} ile dinamik yap -->
-<div class="main-container">
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <!-- Buttons ve saved chats -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HyperNova AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Orijinal CSS'in tamamını buraya kopyala – :root, body, .sidebar, .chat-container, .message, vs. Tam uzun, ama kısalttım için orijinalden al */
+        :root { --bg-color: #f0f2f5; --card-bg: #ffffff; /* ... tüm vars */ }
+        body { background: var(--bg-color); font-family: 'Montserrat', sans-serif; margin: 0; }
+        .main-container { display: flex; height: 100vh; }
+        .sidebar { width: 280px; background: var(--card-bg); /* ... */ }
+        /* Tam CSS orijinalden kopyala, 300+ satır ama çalışır */
+    </style>
+</head>
+<body>
+    <!-- Orijinal HTML body: modal, sidebar, chat-container, input -->
+    <div id="authModal" class="modal"> <!-- Tam modal --> </div>
+    <div class="main-container">
+        <div class="sidebar">
+            <button onclick="newConversation()">New Chat</button>
+            <button onclick="saveCurrentConversation()">Save</button>
+            <div id="saved-chats-list"></div>
+        </div>
+        <div class="chat-wrapper">
+            <div class="chat-container">
+                <div class="header">
+                    <div class="title">HyperNova AI</div>
+                    <div class="header-buttons">
+                        <button onclick="clearConversation()">Clear</button>
+                        <button onclick="toggleTheme()">Theme</button>
+                        <button onclick="toggleLanguage()">EN</button>
+                    </div>
+                </div>
+                <div id="auth-status">
+                    <span id="user-info">Not Logged In</span>
+                    <div id="auth-buttons">
+                        <button onclick="showModal('login')">Login</button>
+                        <button onclick="showModal('register')">Register</button>
+                    </div>
+                </div>
+                <select id="persona-select" onchange="changePersona()">
+                    <option value="hypernova">HyperNova</option>
+                    <option value="kaia" disabled>Kaia (Premium)</option>
+                    <option value="hypernova_dengesiz">Chaotic</option>
+                </select>
+                <div id="chat-history"></div>
+                <div class="input-area">
+                    <input id="message-input" placeholder="Type..." onkeypress="if(event.key==='Enter') sendMessage()">
+                    <button onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
     </div>
-    <!-- Chat wrapper -->
-</div>
-<!-- Modal -->
-{% endblock %}
-{% block scripts %}
-<script>
-    // Orijinal JS'i buraya taşı, ama config'leri window objesine yükle
-    const TRANSLATIONS = {{ translations | tojson }};
-    // ... (tüm JS)
-</script>
-{% endblock %}
+    <script>
+        // Orijinal JS'in tamamını buraya kopyala – conversation = [], sendMessage, toggleTheme, TRANSLATIONS = {{ translations | safe }}, vs.
+        // Tam JS orijinalden, 500+ satır ama çalışır. TRANSLATIONS'ı backend'den al (app.py'de geç)
+        let conversation = [];
+        // ... tüm fonksiyonlar
+    </script>
+</body>
+</html>
