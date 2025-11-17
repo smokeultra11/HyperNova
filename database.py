@@ -2,10 +2,11 @@ import json
 import uuid
 from datetime import datetime, timedelta
 import psycopg
-from urllib.parse import urlparse
+from flask import request  # For get_current_user
 import bcrypt
 from config import DATABASE_URL, DEVELOPER_PASSWORD
 import logging
+import psycopg.errors  # For IntegrityError
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +15,8 @@ SESSION_MAP = {}  # session_id: username
 def get_db_connection():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL bulunamadı!")
-    # psycopg3: conninfo= kullan
     conn = psycopg.connect(conninfo=DATABASE_URL)
-    # Dict-like rows için (orijinal RealDictCursor gibi)
-    conn.row_factory = psycopg.rows.dict_row
+    conn.row_factory = psycopg.rows.dict_row  # Dict-like rows
     return conn
 
 def init_db():
@@ -51,14 +50,11 @@ def get_user_id(username: str) -> int:
         cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
         row = cursor.fetchone()
     conn.close()
-    return row['id'] if row else None  # Dict access
+    return row['id'] if row else None
 
 def get_current_user():
-    # request global hack'i (app.py'de import request ile)
-    if 'request' in globals():
-        session_id = request.cookies.get('session_id')
-        return SESSION_MAP.get(session_id)
-    return None
+    session_id = request.cookies.get('session_id')
+    return SESSION_MAP.get(session_id)
 
 def is_user_premium(username: str) -> bool:
     conn = get_db_connection()
@@ -92,7 +88,7 @@ def create_user(username: str, password: str):
             """, (username, hashed))
             conn.commit()
             return True
-        except psycopg.errors.IntegrityError:  # psycopg3 exception
+        except psycopg.errors.IntegrityError:
             return False
         finally:
             conn.close()
