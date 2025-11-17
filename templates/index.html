@@ -1,1 +1,21 @@
-
+{% extends "base.html" %}
+{% block title %}HyperNova AI ✦ Cosmic Intelligence{% endblock %}
+{% block body_class %}{{ theme }}-theme{% endblock %}
+{% block content %}
+<!-- Sidebar, chat-container, modal'lar... Orijinal HTML'in body kısmını buraya taşı, {{ lang }} ve {{ translations }} ile dinamik yap -->
+<div class="main-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <!-- Buttons ve saved chats -->
+    </div>
+    <!-- Chat wrapper -->
+</div>
+<!-- Modal -->
+{% endblock %}
+{% block scripts %}
+<script>
+    // Orijinal JS'i buraya taşı, ama config'leri window objesine yükle
+    const TRANSLATIONS = {{ translations | tojson }};
+    // ... (tüm JS)
+</script>
+{% endblock %}
