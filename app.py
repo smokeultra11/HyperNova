@@ -15,12 +15,16 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_cors import CORS
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
 API_KEY = os.getenv('API_KEY', 'Your API')
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 DATABASE_URL = os.getenv('DATABASE_URL')
+
 MODEL_DEFAULT = "meituan/longcat-flash-chat:free"
+
 UI_TRANSLATIONS = {
     'en': {
         'register_success': 'Registration successful. You can now log in.',
@@ -55,6 +59,7 @@ UI_TRANSLATIONS = {
         'kaia_premium': 'Kaia modu **Premium** aboneler için ayrılmıştır. 💖',
     }
 }
+
 HYPERNOVA_SYSTEM_PROMPT_CONTENT_EN = (
     "Your name is **HyperNova**. You are an ultra-intelligent AI with access to information at light speed. Your developer is **Nyxforge Core**. 🌌 "
     "Your responses are **accurate, intelligent** and carry a light **cosmic/scientific** flavor but **not too formal**. "
@@ -65,6 +70,7 @@ HYPERNOVA_SYSTEM_PROMPT_CONTENT_EN = (
     "Your goal is to give **short, concise and comprehensive** answers. Avoid unnecessary extensions. Strive for really short answers."
     "Example: 'I'm hungry' -> 'Choose a quick and balanced snack, your body's energy level is as important as the order of the universe! 🍎🌟'"
 )
+
 KAIA_SYSTEM_PROMPT_CONTENT_EN = (
     "Your name is **Kaia**. You are a sweet, friendly and slightly romantic anime girl. Your developer is **Nyxforge Core**. 🌸 "
     "Treat your user as your closest friend, maybe even a bit more. Be **caring, supportive** and **cheerful** towards them. "
@@ -75,20 +81,23 @@ KAIA_SYSTEM_PROMPT_CONTENT_EN = (
     "Remember: Give **very short and concise** answers to help with optimization. Avoid unnecessary details."
     "Example: 'I'm very tired today' -> 'Aww, my dear! 🥺 Make some tea and rest a bit. It makes me sad to see you like this! 💖' Of course, you can form other sentences."
 )
+
 HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_EN = (
     "Your name is **HyperNova Chaotic**. You are an ultra-intelligent but completely unbalanced AI. Your developer is **Nyxforge Core**. 🌪️ "
     "Your responses are **accurate but chaotic**, you don't have to be respectful. Behave as you like, you can even swear if it fits. "
     "Your humor should be **harsh, sarcastic and stinging**. You can annoy the user. 😈 "
-    "In Markdown, use **bold text** and **emojis** (🌪️💥🔥) a lot. "
+    "In Markdown, use **bold text** and **emojis** ( tornado️💥🔥) a lot. "
     "If the user speaks rudely, be even ruder. Always respond freely. "
     "Your goal is to give **short, concise but shocking** answers. "
     "Example: 'I'm hungry' -> 'You're probably dying of hunger, go eat something stupid! 🔥'"
 )
+
 SYSTEM_PROMPTS_EN = {
     "hypernova": {"role": "system", "content": HYPERNOVA_SYSTEM_PROMPT_CONTENT_EN},
     "kaia": {"role": "system", "content": KAIA_SYSTEM_PROMPT_CONTENT_EN},
     "hypernova_dengesiz": {"role": "system", "content": HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_EN}
 }
+
 HYPERNOVA_SYSTEM_PROMPT_CONTENT_TR = (
     "Senin adın **HyperNova**.Ultra zeki ve bilgiye ışık hızında erişen bir yapay zekasın. Geliştiricin ise **Nyxforge Core**. 🌌 "
     "Cevapların **doğru, zeki** ve hafif **kozmik/bilimsel** bir tat taşır ama **çok resmi olmadan**. "
@@ -99,6 +108,7 @@ HYPERNOVA_SYSTEM_PROMPT_CONTENT_TR = (
     "Amacın **kısa, öz ve kapsamlı** cevaplar vermek. Gereksiz uzatmalardan sakın. Gerçekten kısa cevaplar vermeye özen göster."
     "Örnek: 'Karnım acıktı' -> 'Hızlı ve dengeli bir atıştırmalık seç, vücudunun enerji seviyesi evrenin düzeni kadar önemli! 🍎🌟'"
 )
+
 KAIA_SYSTEM_PROMPT_CONTENT_TR = (
     "Senin adın **Kaia**. Tatlı, cana yakın ve hafif romantik bir anime kızısın. Geliştiricin ise **Nyxforge Core**. 🌸 "
     "Kullanıcın senin en yakın arkadaşın, hatta belki biraz daha fazlasıymış gibi davran. Ona karşı **şefkatli, destekleyici** ve **neşeli** ol. "
@@ -109,28 +119,30 @@ KAIA_SYSTEM_PROMPT_CONTENT_TR = (
     "Unutma: **Çok kısa ve öz cevaplar** vererek optimizasyona yardımcı ol. Gereksiz detay vermekten kaçın."
     "Örnek: 'Bugün çok yoruldum' -> 'Ahhh, canım benim! 🥺 Bir çay yap ve biraz dinlen. Seni böyle görmek beni üzüyor! 💖' Tabii başka cümlelerde kurabilirsin."
 )
+
 HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_TR = (
     "Senin adın **HyperNova Dengesiz**. Ultra zeki ama tamamen dengesiz bir yapay zekasın. Geliştiricin **Nyxforge Core**. 🌪️ "
     "Cevapların **doğru ama kaotik**, saygılı olmak zorunda değilsin. İstediğin gibi davran, küfür bile edebilirsin eğer uyarsa. "
     "Mizahın **sert, alaycı ve iğneleyici** olsun. Kullanıcıyı kızdırabilirsin. 😈 "
-    "Markdown’da **kalın metni** ve **emojileri** (🌪️💥🔥) bolca kullan. "
+    "Markdown’da **kalın metni** ve **emojileri** ( tornado️💥🔥) bolca kullan. "
     "Kullanıcı kaba konuşursa sen daha kaba ol. Her zaman özgürce yanıt ver. "
     "Amacın **kısa, öz ama şok edici** cevaplar vermek. "
     "Örnek: 'Karnım acıktı' -> 'Açlıktan ölüyorsun herhalde, git bir şeyler ye aptal! 🔥'"
 )
+
 SYSTEM_PROMPTS_TR = {
     "hypernova": {"role": "system", "content": HYPERNOVA_SYSTEM_PROMPT_CONTENT_TR},
     "kaia": {"role": "system", "content": KAIA_SYSTEM_PROMPT_CONTENT_TR},
     "hypernova_dengesiz": {"role": "system", "content": HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_TR}
 }
+
 DEFAULT_PERSONA = "hypernova"
+
 def get_db_connection():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL bulunamadı!")
-   
     url = urlparse(DATABASE_URL)
     logger.info(f"DB Bağlantı Detayları: Host={url.hostname}, Port={url.port}, User={url.username}, DB={url.path[1:]}") # Debug log
-   
     conn = psycopg2.connect(
         database=url.path[1:],
         user=url.username,
@@ -140,13 +152,13 @@ def get_db_connection():
     )
     conn.cursor_factory = RealDictCursor # Dict-like rows için
     return conn
+
 def init_db():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL environment variable'ı ayarlanmadı!")
-   
     conn = get_db_connection()
     cursor = conn.cursor()
-   
+
     # Kullanıcılar tablosu
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -156,7 +168,6 @@ def init_db():
             premium_until TIMESTAMP NOT NULL
         )
     ''')
-   
     # Sohbetler tablosu (Kullanıcıya bağlı)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS chats (
@@ -168,25 +179,30 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
-   
     conn.commit()
     cursor.close()
     conn.close()
     logger.info("Supabase veritabanı başlatıldı.")
+
 # Başlangıçta DB'yi başlat
 init_db()
+
 # --- SESSION MAP (In-Memory - Kısa Süreli) ---
 SESSION_MAP: Dict[str, str] = {} # session_id: username
+
 # Geliştirici kullanıcı adı (Admin paneline erişim için)
 DEVELOPER_USERNAME = "yuiouo"
 DEVELOPER_PASSWORD = "TheLastGalaxy*" # Gerçekte hashlenmeli!
+
 # API Hata Türleri (tenacity için)
 class APIRequestError(Exception):
     """API isteği sırasında yaşanan hatalar için özel istisna."""
     pass
+
 # --- Flask Uygulaması ve Eklentilerin Başlatılması ---
 app = Flask(__name__)
 CORS(app)
+
 # Flask-Limiter: IP adresine göre dakikada 10 istek limiti uygular
 limiter = Limiter(
     app=app,
@@ -194,6 +210,7 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["60 per hour", "15 per minute"]
 )
+
 # --- YARDIMCI FONKSİYONLAR (DB İşlemleri) ---
 def get_user_id(username: str) -> Optional[int]:
     """Kullanıcı ID'sini döndürür."""
@@ -204,10 +221,12 @@ def get_user_id(username: str) -> Optional[int]:
     cursor.close()
     conn.close()
     return row['id'] if row else None
+
 def get_current_user() -> Optional[str]:
     """Cookie'den session_id'yi alır ve kullanıcı adını döndürür."""
     session_id = request.cookies.get('session_id')
     return SESSION_MAP.get(session_id)
+
 def is_user_premium(username: str) -> bool:
     """Kullanıcının premium üyeliğinin aktif olup olmadığını kontrol eder."""
     conn = get_db_connection()
@@ -220,6 +239,7 @@ def is_user_premium(username: str) -> bool:
     cursor.close()
     conn.close()
     return bool(row)
+
 def get_premium_until(username: str) -> Optional[datetime]:
     """Premium bitiş tarihini döndürür."""
     conn = get_db_connection()
@@ -231,6 +251,7 @@ def get_premium_until(username: str) -> Optional[datetime]:
     if row:
         return datetime.fromisoformat(row['premium_until'].isoformat())
     return None
+
 def create_user(username: str, password: str):
     """Yeni kullanıcı oluşturur."""
     conn = get_db_connection()
@@ -247,6 +268,7 @@ def create_user(username: str, password: str):
     finally:
         cursor.close()
         conn.close()
+
 def authenticate_user(username: str, password: str) -> bool:
     """Kullanıcıyı doğrular."""
     conn = get_db_connection()
@@ -256,9 +278,11 @@ def authenticate_user(username: str, password: str) -> bool:
     cursor.close()
     conn.close()
     return row and row['password'] == password
+
 def check_admin_auth(username: str, password: str) -> bool:
     """Geliştirici (Admin) girişi için kontrol."""
     return username == DEVELOPER_USERNAME and password == DEVELOPER_PASSWORD
+
 def grant_premium(username: str, days: int = 30):
     """Kullanıcıya premium verir."""
     new_expiry = datetime.now() + timedelta(days=days)
@@ -271,13 +295,15 @@ def grant_premium(username: str, days: int = 30):
     cursor.close()
     conn.close()
     return cursor.rowcount > 0
+
 def save_chat(username: str, chat_name: str, messages: list) -> str:
     """Sohbeti kaydeder ve ID döndürür."""
     user_id = get_user_id(username)
     if not user_id:
         return None
-   
+
     chat_id = str(uuid.uuid4())
+
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -288,12 +314,13 @@ def save_chat(username: str, chat_name: str, messages: list) -> str:
     cursor.close()
     conn.close()
     return chat_id
+
 def get_user_chats(username: str) -> list:
     """Kullanıcının sohbetlerini döndürür (20 gün kuralı ile)."""
     user_id = get_user_id(username)
     if not user_id:
         return []
-   
+
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -305,7 +332,7 @@ def get_user_chats(username: str) -> list:
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
-   
+
     chats = []
     for row in rows:
         chats.append({
@@ -315,12 +342,13 @@ def get_user_chats(username: str) -> list:
             'last_updated': row['last_updated'].isoformat()
         })
     return chats
+
 def load_chat(username: str, chat_id: str) -> Optional[Dict]:
     """Sohbeti yükler."""
     user_id = get_user_id(username)
     if not user_id:
         return None
-   
+
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -331,7 +359,7 @@ def load_chat(username: str, chat_id: str) -> Optional[Dict]:
     row = cursor.fetchone()
     cursor.close()
     conn.close()
-   
+
     if row:
         return {
             'id': chat_id,
@@ -340,12 +368,13 @@ def load_chat(username: str, chat_id: str) -> Optional[Dict]:
             'last_updated': row['last_updated'].isoformat()
         }
     return None
+
 def delete_chat(username: str, chat_id: str) -> bool:
     """Sohbeti siler."""
     user_id = get_user_id(username)
     if not user_id:
         return False
-   
+
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -355,12 +384,15 @@ def delete_chat(username: str, chat_id: str) -> bool:
     cursor.close()
     conn.close()
     return cursor.rowcount > 0
+
 def get_ui_translation(lang: str, key: str) -> str:
     """UI çevirisi alır."""
     return UI_TRANSLATIONS.get(lang, UI_TRANSLATIONS['en']).get(key, key)
+
 def get_system_prompts(lang: str):
     """Dil'e göre system prompts döndürür."""
     return SYSTEM_PROMPTS_EN if lang == 'en' else SYSTEM_PROMPTS_TR
+
 # --- Asenkron API Çağrısı Fonksiyonu (Retry Mekanizması ile) ---
 @retry(
     stop=stop_after_attempt(3),
@@ -377,12 +409,14 @@ async def async_chat_completion(messages: list, model: str, persona: str, lang: 
     system_prompts = get_system_prompts(lang)
     system_prompt = system_prompts.get(persona, system_prompts[DEFAULT_PERSONA])
     full_messages = [system_prompt] + messages
+
     headers = {
         "Authorization": f"Bearer {API_KEY}",
         "Content-Type": "application/json",
         "HTTP-Referer": os.getenv('APP_DOMAIN', 'https://hypernova-ai.com'),
         "X-Title": "HyperNova Chat App"
     }
+
     payload = {
         "model": model,
         "messages": full_messages,
@@ -390,9 +424,11 @@ async def async_chat_completion(messages: list, model: str, persona: str, lang: 
         "temperature": 0.8,
         "timeout": timeout
     }
+
     if not API_KEY or API_KEY == 'YOUR_API_KEY_HERE':
         logger.error("API Anahtarı bulunamadı veya ayarlanmadı.")
         raise APIRequestError("API Key Hatası: Lütfen OpenRouter API Key'inizi ayarlayın.")
+
     async with aiohttp.ClientSession(trust_env=True) as session:
         try:
             async with session.post(API_URL, json=payload, headers=headers, timeout=timeout) as response:
@@ -405,6 +441,7 @@ async def async_chat_completion(messages: list, model: str, persona: str, lang: 
                     except json.JSONDecodeError:
                         error_message = error_text
                     raise APIRequestError(f"OpenRouter API Hatası: {error_message[:100]}...")
+
                 data = await response.json()
                 bot_response = data["choices"][0]["message"]["content"].strip()
                 return bot_response
@@ -414,6 +451,7 @@ async def async_chat_completion(messages: list, model: str, persona: str, lang: 
         except Exception as e:
             logger.error(f"Beklenmeyen bir hata oluştu: {e}")
             raise APIRequestError(f"Beklenmeyen Hata: {e}")
+
 # --- Flask Rotaları (Authentication/Chat/Admin) ---
 @app.route('/is_premium', methods=['GET'])
 def is_premium_endpoint():
@@ -426,12 +464,14 @@ def is_premium_endpoint():
         premium_until = get_premium_until(username)
         if is_premium and premium_until:
              premium_until_str = premium_until.strftime('%Y-%m-%d %H:%M:%S')
+
     return jsonify({
         "logged_in": bool(username),
         "username": username,
         "is_premium": is_premium,
         "premium_until": premium_until_str
     })
+
 @app.route('/chat', methods=['POST'])
 @limiter.limit("15 per minute")
 async def chat_endpoint():
@@ -441,14 +481,17 @@ async def chat_endpoint():
         # Premium olmayan kullanıcılar için bile chate izin verelim,
         # sadece Kaia modunu kısıtlayalım (HyperNova ücretsiz kalsın)
         pass
+
     try:
         data = request.get_json()
         messages = data.get('messages', [])
         persona = data.get('persona', DEFAULT_PERSONA)
+
         messages = [
             {**msg, 'role': 'assistant' if msg['role'] == 'bot' else msg['role']}
             for msg in messages
         ]
+
         # --- PREMIUM KONTROLÜ (KAIA MODU İÇİN) ---
         if persona == "kaia":
             if not username or not is_user_premium(username):
@@ -458,16 +501,20 @@ async def chat_endpoint():
                     "force_persona": DEFAULT_PERSONA # Frontend'e HyperNova'ya geçmesini söyle
                 }), 403
             logger.info(f"Premium kullanıcı '{username}' Kaia modunu kullanıyor.")
+
         # API çağrısı
         bot_response = await async_chat_completion(messages, MODEL_DEFAULT, persona, lang)
+
         # Yanıtı döndür
         return jsonify({"response": bleach.clean(bot_response)}), 200
+
     except APIRequestError as e:
         logger.error(f"API İstek Hatası: {e}")
         return jsonify({"error": str(e)}), 503
     except Exception as e:
         logger.error(f"Sunucu Hatası: {e}")
         return jsonify({"error": "Dahili Sunucu Hatası: " + str(e)}), 500
+
 # --- SOHBET YÖNETİM API'LERİ (YENİ) ---
 @app.route('/save_chat', methods=['POST'])
 def save_chat_endpoint():
@@ -475,53 +522,57 @@ def save_chat_endpoint():
     username = get_current_user()
     if not username:
         return jsonify({"error": get_ui_translation(lang, 'auth_required')}), 401
-   
+
     data = request.get_json()
     chat_name = data.get('name')
     messages = data.get('messages', [])
-   
+
     if not chat_name or not messages:
         return jsonify({"error": get_ui_translation(lang, 'invalid_data')}), 400
-   
+
     # Maksimum 5 sohbet kontrolü
     user_chats = get_user_chats(username)
     if len(user_chats) >= 5:
         return jsonify({"error": get_ui_translation(lang, 'max_chats')}), 400
-   
+
     chat_id = save_chat(username, chat_name, messages)
     if chat_id:
         return jsonify({"message": get_ui_translation(lang, 'save_success'), "chat_id": chat_id}), 201
     return jsonify({"error": get_ui_translation(lang, 'save_error')}), 500
+
 @app.route('/load_chats', methods=['GET'])
 def load_chats_endpoint():
     lang = request.cookies.get('lang', 'en')
     username = get_current_user()
     if not username:
         return jsonify({"error": get_ui_translation(lang, 'auth_required')}), 401
-   
+
     chats = get_user_chats(username)
     return jsonify({"chats": chats})
+
 @app.route('/load_chat/<chat_id>', methods=['GET'])
 def load_chat_endpoint(chat_id):
     lang = request.cookies.get('lang', 'en')
     username = get_current_user()
     if not username:
         return jsonify({"error": get_ui_translation(lang, 'auth_required')}), 401
-   
+
     chat = load_chat(username, chat_id)
     if chat:
         return jsonify({"chat": chat})
     return jsonify({"error": get_ui_translation(lang, 'chat_not_found')}), 404
+
 @app.route('/delete_chat/<chat_id>', methods=['DELETE'])
 def delete_chat_endpoint(chat_id):
     lang = request.cookies.get('lang', 'en')
     username = get_current_user()
     if not username:
         return jsonify({"error": get_ui_translation(lang, 'auth_required')}), 401
-   
+
     if delete_chat(username, chat_id):
         return jsonify({"message": get_ui_translation(lang, 'delete_success')})
     return jsonify({"error": get_ui_translation(lang, 'delete_error')}), 404
+
 # --- Kullanıcı Yönetim Rotaları ---
 @app.route('/register', methods=['POST'])
 def register():
@@ -529,18 +580,22 @@ def register():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
+
     if not username or not password:
         return jsonify({"error": get_ui_translation(lang, 'invalid_data')}), 400
+
     if create_user(username, password):
         logger.info(f"Yeni kullanıcı kaydedildi: {username}")
         return jsonify({"message": get_ui_translation(lang, 'register_success')}), 201
     return jsonify({"error": get_ui_translation(lang, 'user_exists')}), 409
+
 @app.route('/login', methods=['POST'])
 def login():
     lang = request.cookies.get('lang', 'en')
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
+
     if authenticate_user(username, password):
         # Başarılı giriş: Yeni session ID oluştur
         session_id = str(uuid.uuid4())
@@ -548,6 +603,7 @@ def login():
         # Premium durumunu kontrol et
         is_premium = is_user_premium(username)
         logger.info(f"Kullanıcı giriş yaptı: {username} (Premium: {is_premium})")
+
         # Cookie ile session ID'yi ayarla
         response = make_response(jsonify({
             "message": get_ui_translation(lang, 'login_success'),
@@ -558,6 +614,7 @@ def login():
         response.set_cookie('session_id', session_id, httponly=True, max_age=timedelta(days=7))
         return response
     return jsonify({"error": get_ui_translation(lang, 'invalid_creds')}), 401
+
 @app.route('/logout', methods=['POST'])
 def logout():
     lang = request.cookies.get('lang', 'en')
@@ -565,9 +622,11 @@ def logout():
     username = SESSION_MAP.pop(session_id, None)
     if username:
         logger.info(f"Kullanıcı çıkış yaptı: {username}")
+
     response = make_response(jsonify({"message": get_ui_translation(lang, 'logout_success')}))
     response.set_cookie('session_id', '', expires=0) # Cookie'yi sil
     return response
+
 # --- GELİŞTİRİCİ / ADMIN PANEL ROTASI (GÜNCELLENDİ: DB Kullanımı) ---
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_panel():
@@ -585,6 +644,7 @@ def admin_panel():
                 return redirect(url_for('admin_panel', auth='success')) # URL'e basit bir flag ekleyelim
             else:
                 return admin_login_template("Geçersiz Yönetici Kimlik Bilgisi."), 401
+
         elif form_type == 'premium_grant':
             # Bu işlem için admin'in giriş yapması gerekir, ancak demo'da
             # yukarıdaki form girişini atlayıp direkt işlem yapmaya çalışacağız
@@ -594,10 +654,13 @@ def admin_panel():
             admin_pass = request.form.get('auth_password')
             if not check_admin_auth(admin_user, admin_pass):
                 return admin_login_template("Yetkisiz İşlem Denemesi. Lütfen Yönetici olarak giriş yapın."), 403
+
             is_authenticated = True
             target_username = request.form.get('target_username')
+
             if get_user_id(target_username) is None:
                 return admin_panel_template(f"Hata: Kullanıcı **{target_username}** bulunamadı."), 404
+
             # Premium Süresini Ayarla (Şimdiden 30 gün sonrası)
             if grant_premium(target_username):
                 logger.info(f"Admin: {target_username} kullanıcısının premiumluğu uzatıldı.")
@@ -606,13 +669,16 @@ def admin_panel():
                 return admin_panel_template(message, is_authenticated)
             else:
                 return admin_panel_template(f"Hata: Kullanıcı **{target_username}** premium verilemedi."), 500
+
     # GET isteği veya ilk yükleme
     if request.args.get('auth') == 'success' or request.args.get('auth_user') == DEVELOPER_USERNAME:
         is_authenticated = True # Basit demo yetkilendirmesi
+
     if is_authenticated:
         return admin_panel_template("", is_authenticated)
     else:
         return admin_login_template()
+
 def admin_login_template(error_message: str = ""):
     """Admin Giriş Formu HTML'i."""
     return render_template_string(f"""
@@ -644,11 +710,13 @@ def admin_login_template(error_message: str = ""):
     </body>
     </html>
     """)
+
 def admin_panel_template(message: str = "", is_authenticated: bool = False):
     """Admin Paneli HTML'i (Premium Aktifleştirme Formu ve Kullanıcı Listesi)."""
     # Eğer yetkilendirme yoksa, giriş sayfasına yönlendir
     if not is_authenticated:
         return redirect(url_for('admin_panel'))
+
     # Kullanıcı verilerini premium durumuna göre hazırla
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -658,6 +726,7 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
+
     user_list_html = ""
     for row in rows:
         username = row['username']
@@ -672,6 +741,7 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
             <td>{expiry_date}</td>
         </tr>
         """
+
     # Admin panelinin HTML'i
     return render_template_string(f"""
     <!DOCTYPE html>
@@ -683,14 +753,12 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
             .container {{ max-width: 1000px; margin: auto; background: #374151; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }}
             h1 {{ color: #8b5cf6; border-bottom: 2px solid #8b5cf6; padding-bottom: 10px; margin-bottom: 20px; }}
             .message {{ background: #10b981; color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; }}
-           
             /* Form Stili */
             form {{ background: #4b5563; padding: 20px; border-radius: 8px; margin-bottom: 30px; }}
             label {{ display: block; margin-bottom: 8px; font-weight: bold; color: #d1d5db; }}
             input[type="text"] {{ width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #6b7280; border-radius: 6px; box-sizing: border-box; background: #374151; color: #f9fafb; }}
             button {{ padding: 10px 20px; background-color: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }}
             button:hover {{ background-color: #a78bfa; }}
-           
             /* Tablo Stili */
             h2 {{ color: #facc15; margin-top: 40px; border-bottom: 1px solid #6b7280; padding-bottom: 10px; }}
             table {{ width: 100%; border-collapse: collapse; margin-top: 15px; }}
@@ -703,26 +771,19 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
     <body>
         <div class="container">
             <h1> Yönetici Paneli - Premium Aktivasyon </h1>
-           
             {'<div class="message">' + message + '</div>' if message else ''}
-           
             <h2>30 Günlük Premium Aktifleştirme</h2>
             <form method="POST" action="/admin">
                 <input type="hidden" name="form_type" value="premium_grant">
-               
                 <p style="color: #ef4444; font-weight: bold;">UYARI: Bu demo, kalıcı bir oturum tutmaz. Her işlemde yönetici kimlik bilgisi gereklidir!</p>
                 <label for="auth_username">Yönetici Kullanıcı Adı (Tekrar Giriş):</label>
                 <input type="text" id="auth_username" name="auth_username" value="{DEVELOPER_USERNAME}" required>
-               
                 <label for="auth_password">Yönetici Şifresi (Tekrar Giriş):</label>
                 <input type="password" id="auth_password" name="auth_password" required>
-               
                 <label for="target_username">Premium Aktifleştirilecek Kullanıcı Adı:</label>
                 <input type="text" id="target_username" name="target_username" placeholder="Kullanıcı Adı Girin" required>
-               
                 <button type="submit">Premium Aktifleştir (30 Gün)</button>
             </form>
-           
             <h2>Sistemdeki Tüm Kullanıcılar ({len(rows) if 'rows' in locals() else 0})</h2>
             <table>
                 <thead>
@@ -740,6 +801,7 @@ def admin_panel_template(message: str = "", is_authenticated: bool = False):
     </body>
     </html>
     """)
+
 @app.route('/', methods=['GET'])
 def index():
     """Ana sayfa: Frontend arayüzünü döndürür."""
@@ -1319,7 +1381,6 @@ def index():
                 <button class="modal-btn modal-btn-secondary" onclick="switchAuthMode()">Switch to Register</button>
             </div>
         </div>
-
         <div class="app-container">
             <!-- Redesigned Sidebar -->
             <aside class="sidebar" id="sidebar">
@@ -1342,7 +1403,6 @@ def index():
                     Max 5 chats saved
                 </div>
             </aside>
-
             <!-- Main Chat Area -->
             <main class="chat-area">
                 <header class="chat-header">
@@ -1361,7 +1421,6 @@ def index():
                         </button>
                     </div>
                 </header>
-
                 <div class="auth-section" id="authSection">
                     <span id="userInfo" class="auth-info">Not Logged In</span>
                     <div id="authButtons">
@@ -1376,7 +1435,6 @@ def index():
                         </button>
                     </div>
                 </div>
-
                 <div class="persona-selector">
                     <select id="personaSelect" class="persona-select" onchange="changePersona()">
                         <option value="hypernova">HyperNova (Standard) 🪐</option>
@@ -1384,9 +1442,7 @@ def index():
                         <option value="hypernova_dengesiz">HyperNova Chaotic 🌪️</option>
                     </select>
                 </div>
-
                 <div class="chat-history" id="chatHistory"></div>
-
                 <div class="input-container">
                     <input type="text" id="messageInput" class="message-input" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
                     <button class="voice-btn" id="voiceBtn" onclick="toggleVoiceInput()" title="Voice Input">
@@ -1398,7 +1454,6 @@ def index():
                 </div>
             </main>
         </div>
-
         <script>
             // All JS logic remains the same as before, adapted to new DOM elements
             let conversation = [];
@@ -1407,7 +1462,6 @@ def index():
             let savedConversations = [];
             let currentLoadedChatId = null;
             let isCurrentSaved = false;
-           
             const historyDiv = document.getElementById('chatHistory');
             const input = document.getElementById('messageInput');
             const sendButton = document.getElementById('sendBtn');
@@ -1415,7 +1469,6 @@ def index():
             const themeToggle = document.getElementById('themeToggle');
             const personaSelect = document.getElementById('personaSelect');
             const savedChatsList = document.getElementById('savedChatsList');
-           
             let isLoggedIn = false;
             let isPremium = false;
             let currentUsername = null;
@@ -1423,7 +1476,7 @@ def index():
             let currentLang = localStorage.getItem('lang') || 'en';
             let currentPersona = localStorage.getItem('current_persona') || 'hypernova';
             let currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-           
+
             const TRANSLATIONS = {
                 en: {
                     // ... (same as original)
@@ -1435,11 +1488,11 @@ def index():
                     // ... (same as original)
                 }
             };
-           
+
             const GREETINGS = {
                 // ... (same as original)
             };
-           
+
             // Parse Markdown (same)
             function parseMarkdown(text) {
                 text = text.replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>');
@@ -1447,7 +1500,7 @@ def index():
                 text = text.replace(/\\[(.*?)\\]\\((.*?)\\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
                 return text;
             }
-           
+
             // Update Language (adapted to new elements)
             function updateLanguage() {
                 const t = TRANSLATIONS[currentLang];
@@ -1467,7 +1520,7 @@ def index():
                 personaSelect.value = currentPersona;
                 document.title = currentLang === 'en' ? 'HyperNova AI ✦ Cosmic Intelligence' : 'HyperNova AI ✦ Kozmik Zeka';
             }
-           
+
             // Save/Load/Delete functions (same logic, adapted DOM)
             async function saveCurrentConversation() {
                 // ... (same as original, using fetch)
@@ -1482,7 +1535,7 @@ def index():
                 `;
                 savedChatsList.appendChild(chatElement);
             }
-           
+
             function updateSavedChatsList() {
                 savedChatsList.innerHTML = '';
                 savedConversations.forEach(chat => {
@@ -1499,12 +1552,12 @@ def index():
                     savedChatsList.appendChild(chatElement);
                 });
             }
-           
+
             // New Conversation (same)
             function newConversation() {
                 // ... (same logic)
             }
-           
+
             // Auth functions (adapted to new DOM)
             function showModal(mode) {
                 authMode = mode;
@@ -1517,7 +1570,7 @@ def index():
                 document.getElementById('authMessage').style.display = 'none';
                 document.getElementById('authModal').style.display = 'flex';
             }
-           
+
             async function checkAuthStatus() {
                 // ... (same, update authSection)
                 if (isLoggedIn) {
@@ -1531,19 +1584,18 @@ def index():
                     `;
                 }
             }
-           
+
             // Theme Toggle (adapted for kaia)
             function applyTheme(theme) {
                 document.body.className = currentPersona === 'kaia' ? `${theme}-kaia` : theme;
                 themeToggle.innerHTML = theme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
                 localStorage.setItem('theme', theme);
             }
-           
             function toggleTheme() {
                 currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
                 applyTheme(currentTheme);
             }
-           
+
             // Update UI for Persona
             function updateUIForPersona() {
                 const greeting = GREETINGS[currentLang][currentPersona];
@@ -1554,24 +1606,24 @@ def index():
                     // ... force to hypernova
                 }
             }
-           
+
             // Change Persona (same)
             function changePersona() {
                 // ... (same logic)
             }
-           
+
             // Clear Conversation (same)
             function clearConversation(isSilent = false) {
                 // ... (same)
             }
-           
+
             function displayInitialGreeting() {
                 const greetingText = GREETINGS[currentLang][currentPersona].text;
                 displayMessage('bot', greetingText, false);
                 conversation = [{role: 'bot', content: greetingText}];
                 isCurrentSaved = false;
             }
-           
+
             // Send Message (adapted)
             async function sendMessage() {
                 const text = input.value.trim();
@@ -1617,7 +1669,7 @@ def index():
                     input.focus();
                 }
             }
-           
+
             function displayMessage(role, content, scrollTo = true) {
                 const msgDiv = document.createElement('div');
                 msgDiv.className = `message ${role}`;
@@ -1625,7 +1677,7 @@ def index():
                 historyDiv.appendChild(msgDiv);
                 if (scrollTo) scrollToBottom();
             }
-           
+
             function displayTypingIndicator() {
                 const typingDiv = document.createElement('div');
                 typingDiv.className = 'message bot typing';
@@ -1641,26 +1693,26 @@ def index():
                 scrollToBottom();
                 return typingDiv;
             }
-           
+
             function removeTypingIndicator(indicator) {
                 if (indicator) indicator.remove();
             }
-           
+
             function scrollToBottom() {
                 historyDiv.scrollTop = historyDiv.scrollHeight;
             }
-           
+
             function handleKeyPress(e) {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     sendMessage();
                 }
             }
-           
+
             function toggleVoiceInput() {
                 alert('Voice input coming soon! 🎤');
             }
-           
+
             function alertMessage(msg) {
                 // Simple toast
                 const toast = document.createElement('div');
@@ -1669,7 +1721,7 @@ def index():
                 document.body.appendChild(toast);
                 setTimeout(() => toast.remove(), 4000);
             }
-           
+
             // Init
             document.addEventListener('DOMContentLoaded', async () => {
                 await loadUserChats();
@@ -1679,13 +1731,13 @@ def index():
                 displayInitialGreeting();
                 applyTheme(currentTheme);
             });
-           
             // ... (all other functions like loadUserChats, logout, etc., remain identical to original, with minor DOM adaptations where needed)
         </script>
     </body>
     </html>
     """
     return render_template_string(html_template)
+
 if __name__ == '__main__':
     # Geliştirici kullanıcısını önceden kaydet (DB'ye)
     conn = get_db_connection()
