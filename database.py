@@ -1,7 +1,7 @@
 import json
 import uuid
 from datetime import datetime, timedelta
-import psycopg  # <-- psycopg3 import (psycopg2 yerine)
+import psycopg
 from urllib.parse import urlparse
 import bcrypt
 from config import DATABASE_URL, DEVELOPER_PASSWORD
@@ -14,8 +14,10 @@ SESSION_MAP = {}  # session_id: username
 def get_db_connection():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL bulunamadı!")
-    # psycopg3: connect(dsn=...)
+    # psycopg3: conninfo= kullan
     conn = psycopg.connect(conninfo=DATABASE_URL)
+    # Dict-like rows için (orijinal RealDictCursor gibi)
+    conn.row_factory = psycopg.rows.dict_row
     return conn
 
 def init_db():
@@ -49,10 +51,10 @@ def get_user_id(username: str) -> int:
         cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
         row = cursor.fetchone()
     conn.close()
-    return row[0] if row else None  # psycopg3: row tuple, index 0
+    return row['id'] if row else None  # Dict access
 
 def get_current_user():
-    # request global hack'i aynı (app.py'de set ediliyor)
+    # request global hack'i (app.py'de import request ile)
     if 'request' in globals():
         session_id = request.cookies.get('session_id')
         return SESSION_MAP.get(session_id)
@@ -76,7 +78,7 @@ def get_premium_until(username: str) -> datetime:
         row = cursor.fetchone()
     conn.close()
     if row:
-        return row[0]  # tuple
+        return row['premium_until']
     return None
 
 def create_user(username: str, password: str):
@@ -90,7 +92,7 @@ def create_user(username: str, password: str):
             """, (username, hashed))
             conn.commit()
             return True
-        except psycopg.IntegrityError:  # <-- psycopg3 exception
+        except psycopg.errors.IntegrityError:  # psycopg3 exception
             return False
         finally:
             conn.close()
@@ -102,7 +104,7 @@ def authenticate_user(username: str, password: str) -> bool:
         row = cursor.fetchone()
     conn.close()
     if row:
-        return bcrypt.checkpw(password.encode('utf-8'), row[0].encode('utf-8'))
+        return bcrypt.checkpw(password.encode('utf-8'), row['password'].encode('utf-8'))
     return False
 
 def check_admin_auth(username: str, password: str) -> bool:
@@ -153,10 +155,10 @@ def get_user_chats(username: str) -> list:
     chats = []
     for row in rows:
         chats.append({
-            'id': row[0],
-            'name': row[1],
-            'messages': json.loads(row[2]),
-            'last_updated': row[3].isoformat()
+            'id': row['id'],
+            'name': row['name'],
+            'messages': json.loads(row['messages']),
+            'last_updated': row['last_updated'].isoformat()
         })
     return chats
 
@@ -176,9 +178,9 @@ def load_chat(username: str, chat_id: str) -> dict:
     if row:
         return {
             'id': chat_id,
-            'name': row[0],
-            'messages': json.loads(row[1]),
-            'last_updated': row[2].isoformat()
+            'name': row['name'],
+            'messages': json.loads(row['messages']),
+            'last_updated': row['last_updated'].isoformat()
         }
     return None
 
