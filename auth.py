@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, make_response
 from flask_limiter.util import get_remote_address
 from flask_limiter import Limiter
-from database import authenticate_user, create_user, is_user_premium, get_premium_until, SESSION_MAP
+from database import authenticate_user, create_user, is_user_premium, get_premium_until, SESSION_MAP, get_current_user
 from config import get_ui_translation, UI_TRANSLATIONS, SESSION_LIFETIME
 import uuid
 import logging
