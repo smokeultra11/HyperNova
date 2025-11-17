@@ -1,5 +1,6 @@
 from flask import Blueprint, request, render_template_string, redirect, url_for
 from database import get_db_connection, grant_premium, is_user_premium, check_admin_auth
+from config import DEVELOPER_USERNAME
 import logging
 
 logger = logging.getLogger(__name__)
@@ -31,10 +32,9 @@ def admin_panel_template(message="", is_authenticated=False):
     if not is_authenticated:
         return redirect(url_for('admin.admin_panel'))
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT username, premium_until FROM users ORDER BY premium_until DESC")
-    rows = cursor.fetchall()
-    cursor.close()
+    with conn.cursor() as cursor:
+        cursor.execute("SELECT username, premium_until FROM users ORDER BY premium_until DESC")
+        rows = cursor.fetchall()
     conn.close()
     user_list_html = ""
     for row in rows:
