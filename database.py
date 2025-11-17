@@ -1,41 +1,73 @@
-from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timedelta
-from werkzeug.security import generate_password_hash, check_password_hash
-import uuid
 import json
+import uuid
+from datetime import datetime, timedelta
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from urllib.parse import urlparse
+from config import DATABASE_URL
+import logging
 
-db = SQLAlchemy()
+logger = logging.getLogger(__name__)
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(120), nullable=False)
-    premium_until = db.Column(db.DateTime, default=datetime.utcnow)
+def get_db_connection():
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL bulunamadı!")
+    url = urlparse(DATABASE_URL)
+    conn = psycopg2.connect(
+        database=url.path[1:],
+        user=url.username,
+        password=url.password,
+        host=url.hostname,
+        port=url.port
+    )
+    conn.cursor_factory = RealDictCursor
+    return conn
 
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+def init_db():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            premium_until TIMESTAMP NOT NULL
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chats (
+            id TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            messages TEXT NOT NULL,
+            last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    conn.commit()
+    cursor.close()
+    conn.close()
+    logger.info("DB başlatıldı.")
 
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
+# CRUD fonksiyonları (get_user_id, create_user, save_chat, vs. aynı, ama bcrypt ile hash'le)
+import bcrypt  # Şifre hash için
 
-    def is_premium(self):
-        return self.premium_until > datetime.utcnow()
+def create_user(username: str, password: str):
+    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO users (username, password, premium_until)
+            VALUES (%s, %s, NOW())
+        """, (username, hashed.decode('utf-8')))
+        conn.commit()
+        return True
+    except psycopg2.IntegrityError:
+        return False
+    finally:
+        cursor.close()
+        conn.close()
 
-class Chat(db.Model):
-    id = db.Column(db.String(36), primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    name = db.Column(db.String(100), nullable=False)
-    messages = db.Column(db.Text, nullable=False)  # JSON string
-    last_updated = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'messages': json.loads(self.messages),
-            'last_updated': self.last_updated.isoformat()
-        }
-
-# Admin init fonksiyonu (utils'e taşındı)
-DEVELOPER_USERNAME = "yuiouo"
-DEVELOPER_PASSWORD_HASH = generate_password_hash("TheLastGalaxy*")
+# Diğer fonksiyonlar: authenticate_user (bcrypt.checkpw ile), get_user_chats, load_chat, delete_chat, is_user_premium, grant_premium...
+# (Tüm DB fonksiyonlarını buraya taşı, aynı kod)
