@@ -1,7 +1,7 @@
 Flask==2.3.3
 Flask-CORS==4.0.0
 Flask-Limiter==3.5.0
-psycopg[binary]
+psycopg2-binary==2.9.9  # psycopg[binary] yerine psycopg2-binary kullan (kod psycopg2 import ediyor)
 aiohttp==3.9.1
 tenacity==8.2.3
 bleach==6.1.0
