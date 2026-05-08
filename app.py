@@ -1783,7 +1783,6 @@ def index():
                 const t = TRANSLATIONS[currentLang];
                 // Sidebar
                 document.querySelector('.new-chat-button').textContent = t.newChat;
-                document.getElementById('save-chat-sidebar-button').textContent = t.saveChat;
                 document.querySelector('.sidebar h3').textContent = t.savedChats;
                 document.querySelector('.save-limit').textContent = t.maxChats;
                 // Buttons
