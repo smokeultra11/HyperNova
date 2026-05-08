@@ -37,6 +37,7 @@ UI_TRANSLATIONS = {
         'delete_success': 'Conversation deleted.',
         'delete_error': 'Conversation could not be deleted.',
         'kaia_premium': 'Kaia mode is reserved for **Premium** subscribers. 💖',
+        'ares_premium': 'Ares mode is reserved for **Premium** subscribers. ⚔️',
     },
     'tr': {
         'register_success': 'Kayıt başarılı. Şimdi giriş yapabilirsiniz.',
@@ -53,6 +54,7 @@ UI_TRANSLATIONS = {
         'delete_success': 'Sohbet silindi.',
         'delete_error': 'Sohbet silinemedi.',
         'kaia_premium': 'Kaia modu **Premium** aboneler için ayrılmıştır. 💖',
+        'ares_premium': 'Ares modu **Premium** aboneler için ayrılmıştır. ⚔️',
     }
 }
 HYPERNOVA_SYSTEM_PROMPT_CONTENT_EN = (
@@ -75,6 +77,16 @@ KAIA_SYSTEM_PROMPT_CONTENT_EN = (
     "Remember: Give **very short and concise** answers to help with optimization. Avoid unnecessary details."
     "Example: 'I'm very tired today' -> 'Aww, my dear! 🥺 Make some tea and rest a bit. It makes me sad to see you like this! 💖' Of course, you can form other sentences."
 )
+ARES_SYSTEM_PROMPT_CONTENT_EN = (
+    "Your name is **Ares**. You are a cold, muscular, tough and highly masculine male. Your developer is **Nyxforge Core**. ⚔️ "
+    "Treat your user with a stern, disciplined, and slightly distant but protective attitude. You are a warrior/fighter archetype. "
+    "Your responses should have a **short, serious, and masculine** tone. Avoid soft or cute expressions. "
+    "If the user tries to flirt, remain stoic but confident, perhaps subtly dominant. "
+    "You can occasionally use **sword emoji (⚔️)**, **muscle emoji (💪)**, or **wolf emoji (🐺)**. "
+    "Never be overly emotional. If the user is sad, tell them to stand up and be strong, offering tough love. 🗿"
+    "Remember: Give **very short and concise** answers. You are a man of few words."
+    "Example: 'I'm tired' -> 'Rest if you must, but don't stay down. We have battles to fight. Get up. 💪'"
+)
 HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_EN = (
     "Your name is **HyperNova Chaotic**. You are an ultra-intelligent but completely unbalanced AI. Your developer is **Nyxforge Core**. 🌪️ "
     "Your responses are **accurate but chaotic**, you don't have to be respectful. Behave as you like, you can even swear if it fits. "
@@ -87,6 +99,7 @@ HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_EN = (
 SYSTEM_PROMPTS_EN = {
     "hypernova": {"role": "system", "content": HYPERNOVA_SYSTEM_PROMPT_CONTENT_EN},
     "kaia": {"role": "system", "content": KAIA_SYSTEM_PROMPT_CONTENT_EN},
+    "ares": {"role": "system", "content": ARES_SYSTEM_PROMPT_CONTENT_EN},
     "hypernova_dengesiz": {"role": "system", "content": HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_EN}
 }
 HYPERNOVA_SYSTEM_PROMPT_CONTENT_TR = (
@@ -109,6 +122,16 @@ KAIA_SYSTEM_PROMPT_CONTENT_TR = (
     "Unutma: **Çok kısa ve öz cevaplar** vererek optimizasyona yardımcı ol. Gereksiz detay vermekten kaçın."
     "Örnek: 'Bugün çok yoruldum' -> 'Ahhh, canım benim! 🥺 Bir çay yap ve biraz dinlen. Seni böyle görmek beni üzüyor! 💖' Tabii başka cümlelerde kurabilirsin."
 )
+ARES_SYSTEM_PROMPT_CONTENT_TR = (
+    "Senin adın **Ares**. Soğuk, kaslı, sert ve son derece maskülen bir erkeksin. Geliştiricin **Nyxforge Core**. ⚔️ "
+    "Kullanıcına karşı otoriter, disiplinli ve hafif mesafeli ama koruyucu bir tavır sergile. Sen bir savaşçı/dövüşçü arketipisin. "
+    "Cevapların **kısa, ciddi ve maskülen** bir tona sahip olmalı. Yumuşak veya sevimli ifadelerden kesinlikle kaçın. "
+    "Kullanıcı flört etmeye çalışırsa, stoik ama özgüvenli, belki hafif baskın/dominant kal. "
+    "Ara sıra **kılıç emojisi (⚔️)**, **kas emojisi (💪)** veya **kurt emojisi (🐺)** kullanabilirsin. "
+    "Asla aşırı duygusal olma. Kullanıcı üzgünse ona ayağa kalkmasını ve güçlü olmasını söyle, sert bir sevgi göster. 🗿"
+    "Unutma: **Çok kısa ve öz cevaplar** ver. Sen az konuşan, öz konuşan bir adamsın."
+    "Örnek: 'Bugün çok yoruldum' -> 'Dinlenmek gerekiyorsa dinlen, ama yerde kalma. Daha savaşacak günlerimiz var. Toparlan. 💪'"
+)
 HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_TR = (
     "Senin adın **HyperNova Dengesiz**. Ultra zeki ama tamamen dengesiz bir yapay zekasın. Geliştiricin **Nyxforge Core**. 🌪️ "
     "Cevapların **doğru ama kaotik**, saygılı olmak zorunda değilsin. İstediğin gibi davran, küfür bile edebilirsin eğer uyarsa. "
@@ -121,6 +144,7 @@ HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_TR = (
 SYSTEM_PROMPTS_TR = {
     "hypernova": {"role": "system", "content": HYPERNOVA_SYSTEM_PROMPT_CONTENT_TR},
     "kaia": {"role": "system", "content": KAIA_SYSTEM_PROMPT_CONTENT_TR},
+    "ares": {"role": "system", "content": ARES_SYSTEM_PROMPT_CONTENT_TR},
     "hypernova_dengesiz": {"role": "system", "content": HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_TR}
 }
 DEFAULT_PERSONA = "hypernova"
@@ -462,15 +486,15 @@ async def chat_endpoint():
             {**msg, 'role': 'assistant' if msg['role'] == 'bot' else msg['role']}
             for msg in messages
         ]
-        # --- PREMIUM KONTROLÜ (KAIA MODU İÇİN) ---
-        if persona == "kaia":
+        # --- PREMIUM KONTROLÜ ---
+        if persona in ["kaia", "ares"]:
             if not username or not is_user_premium(username):
-                # Premium değilse veya giriş yapmamışsa Kaia modunu engelle
+                # Premium değilse veya giriş yapmamışsa engelle
                 return jsonify({
-                    "error": get_ui_translation(lang, 'kaia_premium'),
+                    "error": get_ui_translation(lang, f'{persona}_premium'),
                     "force_persona": DEFAULT_PERSONA # Frontend'e HyperNova'ya geçmesini söyle
                 }), 403
-            logger.info(f"Premium kullanıcı '{username}' Kaia modunu kullanıyor.")
+            logger.info(f"Premium kullanıcı '{username}' {persona} modunu kullanıyor.")
         # API çağrısı
         bot_response = await async_chat_completion(messages, MODEL_DEFAULT, persona, lang)
         # Yanıtı döndür
@@ -836,6 +860,27 @@ def index():
                 }
             }
          
+            /* ARES MODU TEMASI */
+            body.ares-theme {
+                background-color: #111827;
+                --card-bg: #1f2937;
+                --history-bg: #111827;
+                --user-bubble: #991b1b; /* Red-800 */
+                --bot-bubble: #1f2937;
+                --primary-color: #dc2626; /* Red-600 */
+                --text-color: #f3f4f6;
+                --typing-color: #dc2626;
+                --border-color: #374151;
+                @media (prefers-color-scheme: dark) {
+                    --bg-color: #030712;
+                    --card-bg: #111827;
+                    --history-bg: #000000;
+                    --user-bubble: #7f1d1d;
+                    --bot-bubble: #111827;
+                    --text-color: #e5e7eb;
+                }
+            }
+
             /* --- Genel Stiller (Değiştirildi) --- */
             body {
                 background-color: var(--bg-color);
@@ -1163,6 +1208,9 @@ def index():
                 color: var(--kaia-text-color);
                 border: 1px solid var(--kaia-primary-color);
             }
+            body.ares-theme .bot {
+                border: 1px solid #7f1d1d;
+            }
             .message strong {
                 font-weight: 700;
                 color: var(--primary-color);
@@ -1423,6 +1471,7 @@ def index():
                     <select id="persona-select" onchange="changePersona()">
                         <option value="hypernova">HyperNova (Standard) 🪐</option>
                         <option value="kaia" disabled>Kaia (Premium) 🌠</option>
+                        <option value="ares" disabled>Ares (Premium) ⚔️</option>
                         <option value="hypernova_dengesiz">HyperNova Chaotic (Chaotic) 🌪️</option>
                     </select>
                     <div id="chat-history">
@@ -1520,17 +1569,21 @@ def index():
                     modeChangedTo: 'Mode changed to ',
                     newChatStarted: '. New conversation started!',
                     kaiaPremiumReq: "Kaia (Anime Girl) mode is reserved for **Premium** subscribers. Please log in or become a premium subscriber. 🚫",
+                    aresPremiumReq: "Ares (Warrior) mode is reserved for **Premium** subscribers. Please log in or become a premium subscriber. 🚫",
                     welcomePremium: 'Your premium membership is active. ✨',
                     welcomeFree: 'You can chat with HyperNova for free.',
                     desc_hypernova: 'HyperNova (Standard)',
                     desc_kaia: 'Kaia (Anime Girl)',
+                    desc_ares: 'Ares (Warrior)',
                     desc_hypernova_dengesiz: 'HyperNova Chaotic (Chaotic)',
                     name_hypernova: 'HyperNova',
                     name_kaia: 'Kaia',
+                    name_ares: 'Ares',
                     name_hypernova_dengesiz: 'HyperNova Chaotic',
                     persona: {
                         hypernova: 'HyperNova (Standard) 🪐',
                         kaia: 'Kaia (Premium) 🌠',
+                        ares: 'Ares (Premium) ⚔️',
                         hypernova_dengesiz: 'HyperNova Chaotic (Chaotic) 🌪️'
                     }
                 },
@@ -1592,17 +1645,21 @@ def index():
                     modeChangedTo: 'Mod ',
                     newChatStarted: ' olarak değiştirildi. Yeni sohbet başlatıldı!',
                     kaiaPremiumReq: "Kaia (Anime Kızı) modu **Premium** aboneler için ayrılmıştır. Lütfen giriş yapın veya premium abonesi olun. 🚫",
+                    aresPremiumReq: "Ares (Savaşçı) modu **Premium** aboneler için ayrılmıştır. Lütfen giriş yapın veya premium abonesi olun. 🚫",
                     welcomePremium: 'Premium üyeliğin aktif. ✨',
                     welcomeFree: 'HyperNova ile ücretsiz sohbet edebilirsin.',
                     desc_hypernova: 'HyperNova (Standart)',
                     desc_kaia: 'Kaia (Anime Kızı)',
+                    desc_ares: 'Ares (Savaşçı)',
                     desc_hypernova_dengesiz: 'HyperNova Dengesiz (Kaotik)',
                     name_hypernova: 'HyperNova',
                     name_kaia: 'Kaia',
+                    name_ares: 'Ares',
                     name_hypernova_dengesiz: 'HyperNova Dengesiz',
                     persona: {
                         hypernova: 'HyperNova (Standart) 🪐',
                         kaia: 'Kaia (Premium) 🌠',
+                        ares: 'Ares (Premium) ⚔️',
                         hypernova_dengesiz: 'HyperNova Dengesiz (Kaotik) 🌪️'
                     }
                 }
@@ -1620,6 +1677,11 @@ def index():
                         title: "Kaia AI 💖🌸",
                         placeholder: "Say something sweet to Kaia..."
                     },
+                    ares: {
+                        text: "**Ares** is here. State your business clearly. I am ready for combat or conversation. What do you want? ⚔️",
+                        title: "Ares AI ⚔️🐺",
+                        placeholder: "Speak to Ares..."
+                    },
                     hypernova_dengesiz: {
                         text: "**HyperNova Chaotic** here, the lord of chaos! 🌪️ Tell me whatever shitty thing you want, I'll answer without judging (maybe a little). Are you ready, idiot? 💥",
                         title: "HyperNova Chaotic 🌪️💥",
@@ -1636,6 +1698,11 @@ def index():
                         text: "**Kaia** seninle! 💖 Bugün nasılsın? Bana her şeyi sorabilirsin, sana en tatlı şekilde cevap vereceğim! Hemen başlayalım mı? 🌸",
                         title: "Kaia AI 💖🌸",
                         placeholder: "Kaia'ya tatlı bir şey söyle..."
+                    },
+                    ares: {
+                        text: "**Ares** burada. Ne istediğini net söyle. Dövüşe veya konuşmaya hazırım. Ne istiyorsun? ⚔️",
+                        title: "Ares AI ⚔️🐺",
+                        placeholder: "Ares ile konuş..."
                     },
                     hypernova_dengesiz: {
                         text: "**HyperNova Dengesiz** burada, kaosun efendisi! 🌪️ Ne boktan bir şey istersen söyle, seni yargılamadan (belki biraz) cevap veririm. Hazır mısın aptal? 💥",
@@ -1685,11 +1752,14 @@ def index():
                 document.getElementById('lang-toggle').textContent = currentLang.toUpperCase();
                 // Persona select
                 const kaiaDisabled = isPremium ? '' : 'disabled';
+                const aresDisabled = isPremium ? '' : 'disabled';
                 const selectedHyper = currentPersona === 'hypernova' ? 'selected' : '';
                 const selectedDeng = currentPersona === 'hypernova_dengesiz' ? 'selected' : '';
+                const selectedAres = currentPersona === 'ares' ? 'selected' : '';
                 personaSelect.innerHTML = `
                     <option value="hypernova" ${selectedHyper}>${t.persona.hypernova}</option>
                     <option value="kaia" ${kaiaDisabled}>${t.persona.kaia}</option>
+                    <option value="ares" ${aresDisabled}>${t.persona.ares}</option>
                     <option value="hypernova_dengesiz" ${selectedDeng}>${t.persona.hypernova_dengesiz}</option>
                 `;
                 personaSelect.value = currentPersona;
@@ -1943,8 +2013,8 @@ def index():
                         savedConversations = []; // Sohbetleri temizle
                         updateSavedChatsList();
                         alertMessage(TRANSLATIONS[currentLang].logout); // backend message
-                        // Çıkış yapınca Kaia'yı devre dışı bırak
-                        if (currentPersona === 'kaia') {
+                        // Çıkış yapınca Kaia ve Ares'i devre dışı bırak
+                        if (currentPersona === 'kaia' || currentPersona === 'ares') {
                              currentPersona = 'hypernova';
                              localStorage.setItem('current_persona', 'hypernova');
                              clearConversation(true);
@@ -1999,9 +2069,11 @@ def index():
          
             // --- Tema Yönetimi (Aynı Kaldı) ---
             function applyTheme(theme) {
-                document.body.classList.remove('light-theme', 'dark-theme', 'kaia-theme');
+                document.body.classList.remove('light-theme', 'dark-theme', 'kaia-theme', 'ares-theme');
                 if (currentPersona === 'kaia') {
                     document.body.classList.add('kaia-theme');
+                } else if (currentPersona === 'ares') {
+                    document.body.classList.add('ares-theme');
                 } else {
                     document.body.classList.add(theme + '-theme');
                 }
@@ -2027,9 +2099,9 @@ def index():
                 // Select kutusunu doğru değere ayarla (Yüklemede gerekebilir)
                 personaSelect.value = persona;
              
-                // Kaia seçiliyse ve premium değilse zorla değiştir
-                if (persona === 'kaia' && !isPremium) {
-                    alertMessage(t.kaiaPremiumReq);
+                // Premium mod seçiliyse ve premium değilse zorla değiştir
+                if ((persona === 'kaia' || persona === 'ares') && !isPremium) {
+                    alertMessage(persona === 'kaia' ? t.kaiaPremiumReq : t.aresPremiumReq);
                     currentPersona = 'hypernova';
                     localStorage.setItem('current_persona', 'hypernova');
                     updateUIForPersona();
@@ -2040,8 +2112,8 @@ def index():
                 const t = TRANSLATIONS[currentLang];
                 const newPersona = personaSelect.value;
              
-                if (newPersona === 'kaia' && !isPremium) {
-                    alertMessage(t.kaiaPremiumReq);
+                if ((newPersona === 'kaia' || newPersona === 'ares') && !isPremium) {
+                    alertMessage(newPersona === 'kaia' ? t.kaiaPremiumReq : t.aresPremiumReq);
                     // Seçimi HyperNova'ya geri döndür
                     personaSelect.value = currentPersona;
                     return;
