@@ -30,7 +30,7 @@ UI_TRANSLATIONS = {
         'logout_success': 'Logout successful.',
         'save_success': 'Conversation saved.',
         'save_error': 'Save failed.',
-        'max_chats': 'Maximum 5 conversations can be saved.',
+        'max_chats': 'Maximum 50 conversations can be saved.',
         'auth_required': 'You must log in.',
         'invalid_data': 'Chat name and messages required.',
         'chat_not_found': 'Conversation not found.',
@@ -47,7 +47,7 @@ UI_TRANSLATIONS = {
         'logout_success': 'Çıkış başarılı.',
         'save_success': 'Sohbet kaydedildi.',
         'save_error': 'Kaydetme başarısız.',
-        'max_chats': 'Maksimum 5 sohbet kaydedilebilir.',
+        'max_chats': 'Maksimum 50 sohbet kaydedilebilir.',
         'auth_required': 'Giriş yapmalısınız.',
         'invalid_data': 'Sohbet adı ve mesajlar zorunlu.',
         'chat_not_found': 'Sohbet bulunamadı.',
@@ -193,14 +193,21 @@ def init_db():
         )
     ''')
  
+    # Oturumlar tablosu (Backend restartlarında login düşmemesi için)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS sessions (
+            session_id TEXT PRIMARY KEY,
+            username TEXT NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+ 
     conn.commit()
     cursor.close()
     conn.close()
     logger.info("Supabase veritabanı başlatıldı.")
 # Başlangıçta DB'yi başlat
 init_db()
-# --- SESSION MAP (In-Memory - Kısa Süreli) ---
-SESSION_MAP: Dict[str, str] = {} # session_id: username
 # Geliştirici kullanıcı adı (Admin paneline erişim için)
 DEVELOPER_USERNAME = "yuiouo"
 DEVELOPER_PASSWORD = "TheLastGalaxy*" # Gerçekte hashlenmeli!
@@ -229,9 +236,17 @@ def get_user_id(username: str) -> Optional[int]:
     conn.close()
     return row['id'] if row else None
 def get_current_user() -> Optional[str]:
-    """Cookie'den session_id'yi alır ve kullanıcı adını döndürür."""
+    """Cookie'den session_id'yi alır ve veritabanından kullanıcı adını döndürür."""
     session_id = request.cookies.get('session_id')
-    return SESSION_MAP.get(session_id)
+    if not session_id:
+        return None
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT username FROM sessions WHERE session_id = %s", (session_id,))
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return row['username'] if row else None
 def is_user_premium(username: str) -> bool:
     """Kullanıcının premium üyeliğinin aktif olup olmadığını kontrol eder."""
     conn = get_db_connection()
@@ -295,19 +310,31 @@ def grant_premium(username: str, days: int = 30):
     cursor.close()
     conn.close()
     return cursor.rowcount > 0
-def save_chat(username: str, chat_name: str, messages: list) -> str:
-    """Sohbeti kaydeder ve ID döndürür."""
+def save_chat(username: str, chat_name: str, messages: list, chat_id: str = None) -> str:
+    """Sohbeti günceller veya kaydeder ve ID döndürür."""
     user_id = get_user_id(username)
     if not user_id:
         return None
  
-    chat_id = str(uuid.uuid4())
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO chats (id, user_id, name, messages, last_updated)
-        VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
-    """, (chat_id, user_id, chat_name, json.dumps(messages)))
+    
+    if chat_id:
+        # Update existing chat
+        cursor.execute("""
+            UPDATE chats SET messages = %s, last_updated = CURRENT_TIMESTAMP
+            WHERE id = %s AND user_id = %s
+        """, (json.dumps(messages), chat_id, user_id))
+        if cursor.rowcount == 0:
+            chat_id = None # if update fails, we will create new
+ 
+    if not chat_id:
+        chat_id = str(uuid.uuid4())
+        cursor.execute("""
+            INSERT INTO chats (id, user_id, name, messages, last_updated)
+            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+        """, (chat_id, user_id, chat_name, json.dumps(messages)))
+ 
     conn.commit()
     cursor.close()
     conn.close()
@@ -520,12 +547,15 @@ def save_chat_endpoint():
     if not chat_name or not messages:
         return jsonify({"error": get_ui_translation(lang, 'invalid_data')}), 400
  
-    # Maksimum 5 sohbet kontrolü
-    user_chats = get_user_chats(username)
-    if len(user_chats) >= 5:
-        return jsonify({"error": get_ui_translation(lang, 'max_chats')}), 400
+    chat_id = data.get('chat_id')
  
-    chat_id = save_chat(username, chat_name, messages)
+    if not chat_id:
+        # Maksimum 50 sohbet kontrolü
+        user_chats = get_user_chats(username)
+        if len(user_chats) >= 50:
+            return jsonify({"error": get_ui_translation(lang, 'max_chats')}), 400
+ 
+    chat_id = save_chat(username, chat_name, messages, chat_id)
     if chat_id:
         return jsonify({"message": get_ui_translation(lang, 'save_success'), "chat_id": chat_id}), 201
     return jsonify({"error": get_ui_translation(lang, 'save_error')}), 500
@@ -581,7 +611,12 @@ def login():
     if authenticate_user(username, password):
         # Başarılı giriş: Yeni session ID oluştur
         session_id = str(uuid.uuid4())
-        SESSION_MAP[session_id] = username
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO sessions (session_id, username) VALUES (%s, %s)", (session_id, username))
+        conn.commit()
+        cursor.close()
+        conn.close()
         # Premium durumunu kontrol et
         is_premium = is_user_premium(username)
         logger.info(f"Kullanıcı giriş yaptı: {username} (Premium: {is_premium})")
@@ -599,9 +634,18 @@ def login():
 def logout():
     lang = request.cookies.get('lang', 'en')
     session_id = request.cookies.get('session_id')
-    username = SESSION_MAP.pop(session_id, None)
-    if username:
-        logger.info(f"Kullanıcı çıkış yaptı: {username}")
+    if session_id:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT username FROM sessions WHERE session_id = %s", (session_id,))
+        row = cursor.fetchone()
+        if row:
+            logger.info(f"Kullanıcı çıkış yaptı: {row['username']}")
+            cursor.execute("DELETE FROM sessions WHERE session_id = %s", (session_id,))
+            conn.commit()
+        cursor.close()
+        conn.close()
+ 
     response = make_response(jsonify({"message": get_ui_translation(lang, 'logout_success')}))
     response.set_cookie('session_id', '', expires=0) # Cookie'yi sil
     return response
@@ -1442,11 +1486,10 @@ def index():
             <div class="sidebar" id="sidebar">
                 <div class="sidebar-toolbar">
                     <button class="new-chat-button" onclick="newConversation()">New Chat</button>
-                    <button id="save-chat-sidebar-button" class="save-chat-sidebar-button" onclick="saveCurrentConversation()">💾 Save Chat</button>
                 </div>
                 <h3>Saved Chats</h3>
                 <div id="saved-chats-list"></div>
-                <div class="save-limit">Maximum 5 chats</div>
+                <div class="save-limit">Maximum 50 chats</div>
             </div>
             <div class="chat-wrapper">
                 <div class="chat-container">
@@ -1515,7 +1558,7 @@ def index():
                     newChat: 'New Chat',
                     saveChat: '💾 Save Chat',
                     savedChats: 'Saved Chats',
-                    maxChats: 'Maximum 5 chats',
+                    maxChats: 'Maximum 50 chats',
                     clearTitle: 'Clear and Reset Conversation',
                     themeTitle: 'Change Theme',
                     voiceTitle: 'Voice Input',
@@ -1557,7 +1600,7 @@ def index():
                     savePrompt: 'Enter chat name:',
                     saveNoName: 'Chat name required.',
                     saveMinMsg: 'No conversation to save. Send at least one message.',
-                    saveMax: 'Maximum 5 chats can be saved. Delete an old one.',
+                    saveMax: 'Maximum 50 chats can be saved. Delete an old one.',
                     saved: 'Conversation "',
                     savedMsg: '" saved. 💾',
                     loaded: ' conversation loaded.',
@@ -1591,7 +1634,7 @@ def index():
                     newChat: 'Yeni Sohbet',
                     saveChat: '💾 Sohbeti Kaydet',
                     savedChats: 'Kaydedilen Sohbetler',
-                    maxChats: 'Maksimum 5 sohbet',
+                    maxChats: 'Maksimum 50 sohbet',
                     clearTitle: 'Sohbeti Temizle ve Sıfırla',
                     themeTitle: 'Temayı Değiştir',
                     voiceTitle: 'Sesli Giriş',
@@ -1633,7 +1676,7 @@ def index():
                     savePrompt: 'Sohbet adı girin:',
                     saveNoName: 'Sohbet adı zorunlu.',
                     saveMinMsg: 'Kaydedilecek sohbet yok. En az bir mesaj gönderin.',
-                    saveMax: 'Maksimum 5 sohbet kaydedilebilir. Eski bir sohbeti silin.',
+                    saveMax: 'Maksimum 50 sohbet kaydedilebilir. Eski bir sohbeti silin.',
                     saved: 'Sohbet "',
                     savedMsg: '" kaydedildi. 💾',
                     loaded: ' sohbeti yüklendi.',
@@ -1768,44 +1811,35 @@ def index():
                 document.documentElement.lang = currentLang;
             }
             // --- API İLE SOHBET FONKSİYONLARI (YENİ) ---
-            async function saveCurrentConversation() {
-                const t = TRANSLATIONS[currentLang];
-                if (!isLoggedIn) {
-                    alertMessage(t.authReqSave);
-                    return;
+            async function autoSaveConversation() {
+                if (!isLoggedIn) return;
+                if (conversation.length < 2) return;
+                
+                let chatName = "Yeni Sohbet";
+                const firstUserMsg = conversation.find(m => m.role === 'user');
+                if (firstUserMsg) {
+                    chatName = firstUserMsg.content.substring(0, 30);
+                    if (firstUserMsg.content.length > 30) chatName += "...";
                 }
-                if (conversation.length < 2) { // En az bir mesaj çifti olmalı
-                    alertMessage(t.saveMinMsg);
-                    return;
-                }
-                const chatName = prompt(t.savePrompt);
-                if (!chatName || chatName.trim() === '') {
-                    alertMessage(t.saveNoName);
-                    return;
-                }
-                // Maksimum 5 sohbet kontrolü (API'den)
-                const userChats = await loadUserChats();
-                if (userChats.chats.length >= 5) {
-                    alertMessage(t.saveMax);
-                    return;
-                }
+                
                 try {
                     const response = await fetch('/save_chat', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: chatName.trim(), messages: conversation })
+                        body: JSON.stringify({ 
+                            name: chatName.trim(), 
+                            messages: conversation,
+                            chat_id: currentLoadedChatId
+                        })
                     });
-                    const data = await response.json();
                     if (response.ok) {
-                        isCurrentSaved = true;
+                        const data = await response.json();
                         currentLoadedChatId = data.chat_id;
-                        await loadUserChats(); // Listeyi güncelle
-                        alertMessage(`${t.saved}"${chatName.trim()}"${t.savedMsg}`);
-                    } else {
-                        alertMessage(`${t.saveError}${data.error}`);
+                        isCurrentSaved = true;
+                        await loadUserChats(); // Update list silently
                     }
                 } catch (error) {
-                    alertMessage(t.networkError);
+                    console.error("Auto-save failed:", error);
                 }
             }
             async function loadUserChats() {
@@ -1912,12 +1946,7 @@ def index():
                     alertMessage(t.thinkingNew);
                     return;
                 }
-                let needsSave = !isCurrentSaved && conversation.length >= 2;
-                if (needsSave && confirm(t.newConvSaveConfirm)) {
-                    saveCurrentConversation();
-                } else if (needsSave && !confirm(t.discardConfirm)) {
-                    return; // Vazgeç
-                }
+                
                 clearConversation(true); // Sessiz temizle
                 currentLoadedChatId = null; // Aktif sohbeti sıfırla
                 isCurrentSaved = false;
@@ -2209,7 +2238,13 @@ def index():
                      
                         // Konuşma geçmişine bot mesajını ekle
                         conversation.push({ role: 'assistant', content: botResponse });
-                        isCurrentSaved = false; // Yeni mesaj eklenince kaydedilmemiş say
+                        
+                        // AUTO-SAVE LOGIC
+                        if (isLoggedIn) {
+                            await autoSaveConversation();
+                        } else {
+                            isCurrentSaved = false;
+                        }
                     }
                 } catch (error) {
                     console.error('Fetch Hatası:', error);
