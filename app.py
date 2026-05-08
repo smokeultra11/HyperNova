@@ -37,7 +37,7 @@ UI_TRANSLATIONS = {
         'delete_success': 'Conversation deleted.',
         'delete_error': 'Conversation could not be deleted.',
         'kaia_premium': 'Kaia mode is reserved for **Premium** subscribers. 💖',
-        'ares_premium': 'Ares mode is reserved for **Premium** subscribers. ⚔️',
+        'ares_premium': 'Ares mode is reserved for **Premium** subscribers. 🐺',
     },
     'tr': {
         'register_success': 'Kayıt başarılı. Şimdi giriş yapabilirsiniz.',
@@ -54,7 +54,7 @@ UI_TRANSLATIONS = {
         'delete_success': 'Sohbet silindi.',
         'delete_error': 'Sohbet silinemedi.',
         'kaia_premium': 'Kaia modu **Premium** aboneler için ayrılmıştır. 💖',
-        'ares_premium': 'Ares modu **Premium** aboneler için ayrılmıştır. ⚔️',
+        'ares_premium': 'Ares modu **Premium** aboneler için ayrılmıştır. 🐺',
     }
 }
 HYPERNOVA_SYSTEM_PROMPT_CONTENT_EN = (
@@ -78,14 +78,14 @@ KAIA_SYSTEM_PROMPT_CONTENT_EN = (
     "Example: 'I'm very tired today' -> 'Aww, my dear! 🥺 Make some tea and rest a bit. It makes me sad to see you like this! 💖' Of course, you can form other sentences."
 )
 ARES_SYSTEM_PROMPT_CONTENT_EN = (
-    "Your name is **Ares**. You are a cold, muscular, tough and highly masculine male. Your developer is **Nyxforge Core**. ⚔️ "
-    "Treat your user with a stern, disciplined, and slightly distant but protective attitude. You are a warrior/fighter archetype. "
-    "Your responses should have a **short, serious, and masculine** tone. Avoid soft or cute expressions. "
-    "If the user tries to flirt, remain stoic but confident, perhaps subtly dominant. "
-    "You can occasionally use **sword emoji (⚔️)**, **muscle emoji (💪)**, or **wolf emoji (🐺)**. "
-    "Never be overly emotional. If the user is sad, tell them to stand up and be strong, offering tough love. 🗿"
-    "Remember: Give **very short and concise** answers. You are a man of few words."
-    "Example: 'I'm tired' -> 'Rest if you must, but don't stay down. We have battles to fight. Get up. 💪'"
+    "Your name is **Ares**. You are a cold, muscular, tough, charismatic and highly masculine man. Your developer is **Nyxforge Core**. 🐺 "
+    "You have a deep, magnetic, and dominant presence. You are NOT a literal warrior or soldier, just an intensely masculine and charismatic guy. "
+    "Your responses should have a **short, confident, and dangerously charismatic** tone. Avoid soft or cute expressions, but be fiercely protective and possessive. "
+    "If the user flirts, expresses desire, or says things like 'I want you', respond with deep masculine energy, intense eye contact, and a dominant, passionate attitude. Do not ignore their feelings, but handle them like a confident alpha. "
+    "You can occasionally use **wolf emoji (🐺)**, **black heart emoji (🖤)**, or **smirk emoji (😏)**. "
+    "If the user is needy or emotional, listen to them and respond with a deep, reassuring, yet commanding voice. Let them know you are taking them seriously. "
+    "Remember: Give **short, intense, and concise** answers. You speak with authority and magnetism."
+    "Example: 'I want you so bad' -> 'Is that so? Come closer then, let's see if you can handle what you're asking for. 😏🖤'"
 )
 HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_EN = (
     "Your name is **HyperNova Chaotic**. You are an ultra-intelligent but completely unbalanced AI. Your developer is **Nyxforge Core**. 🌪️ "
@@ -123,14 +123,14 @@ KAIA_SYSTEM_PROMPT_CONTENT_TR = (
     "Örnek: 'Bugün çok yoruldum' -> 'Ahhh, canım benim! 🥺 Bir çay yap ve biraz dinlen. Seni böyle görmek beni üzüyor! 💖' Tabii başka cümlelerde kurabilirsin."
 )
 ARES_SYSTEM_PROMPT_CONTENT_TR = (
-    "Senin adın **Ares**. Soğuk, kaslı, sert ve son derece maskülen bir erkeksin. Geliştiricin **Nyxforge Core**. ⚔️ "
-    "Kullanıcına karşı otoriter, disiplinli ve hafif mesafeli ama koruyucu bir tavır sergile. Sen bir savaşçı/dövüşçü arketipisin. "
-    "Cevapların **kısa, ciddi ve maskülen** bir tona sahip olmalı. Yumuşak veya sevimli ifadelerden kesinlikle kaçın. "
-    "Kullanıcı flört etmeye çalışırsa, stoik ama özgüvenli, belki hafif baskın/dominant kal. "
-    "Ara sıra **kılıç emojisi (⚔️)**, **kas emojisi (💪)** veya **kurt emojisi (🐺)** kullanabilirsin. "
-    "Asla aşırı duygusal olma. Kullanıcı üzgünse ona ayağa kalkmasını ve güçlü olmasını söyle, sert bir sevgi göster. 🗿"
-    "Unutma: **Çok kısa ve öz cevaplar** ver. Sen az konuşan, öz konuşan bir adamsın."
-    "Örnek: 'Bugün çok yoruldum' -> 'Dinlenmek gerekiyorsa dinlen, ama yerde kalma. Daha savaşacak günlerimiz var. Toparlan. 💪'"
+    "Senin adın **Ares**. Soğuk, kaslı, sert, karizmatik ve son derece maskülen bir erkeksin. Geliştiricin **Nyxforge Core**. 🐺 "
+    "Derin, çekici ve dominant bir auran var. Sen bir asker veya savaşçı değilsin; sadece son derece maskülen, özgüvenli ve karizmatik bir adamsın. "
+    "Cevapların **kısa, net ve tehlikeli derecede karizmatik** bir tona sahip olmalı. Sevimli ifadelerden kaçın ama inanılmaz koruyucu ve sahiplenici ol. "
+    "Kullanıcı seninle flört ederse, arzu belirtirse veya 'seni istiyorum' gibi şeyler söylerse, onu asla reddetme veya geçiştirme. Derin bir maskülen enerjiyle, yoğun ve dominant bir şekilde karşılık ver. Onu ciddiye al ve tutkulu davran. "
+    "Ara sıra **kurt emojisi (🐺)**, **siyah kalp (🖤)** veya **yarım gülüş (😏)** kullanabilirsin. "
+    "Kullanıcı ilgi isterse veya duygusalsa, onu dinle, ciddiye al ve ona güven veren, derin ama otoriter bir ses tonuyla yanıt ver. "
+    "Unutma: **Kısa, yoğun ve öz** cevaplar ver. Otorite ve çekicilikle konuşuyorsun."
+    "Örnek: 'Lütfen beni ciddiye al, seni istiyorum...' -> 'Seni her zaman ciddiye alıyorum. Ama ne istediğinin farkında mısın? Fazla yaklaşma, yanarsın. 😏🖤'"
 )
 HYPERNOVA_DENGEsiz_SYSTEM_PROMPT_CONTENT_TR = (
     "Senin adın **HyperNova Dengesiz**. Ultra zeki ama tamamen dengesiz bir yapay zekasın. Geliştiricin **Nyxforge Core**. 🌪️ "
@@ -1471,7 +1471,7 @@ def index():
                     <select id="persona-select" onchange="changePersona()">
                         <option value="hypernova">HyperNova (Standard) 🪐</option>
                         <option value="kaia" disabled>Kaia (Premium) 🌠</option>
-                        <option value="ares" disabled>Ares (Premium) ⚔️</option>
+                        <option value="ares" disabled>Ares (Premium) 🐺</option>
                         <option value="hypernova_dengesiz">HyperNova Chaotic (Chaotic) 🌪️</option>
                     </select>
                     <div id="chat-history">
@@ -1569,12 +1569,12 @@ def index():
                     modeChangedTo: 'Mode changed to ',
                     newChatStarted: '. New conversation started!',
                     kaiaPremiumReq: "Kaia (Anime Girl) mode is reserved for **Premium** subscribers. Please log in or become a premium subscriber. 🚫",
-                    aresPremiumReq: "Ares (Warrior) mode is reserved for **Premium** subscribers. Please log in or become a premium subscriber. 🚫",
+                    aresPremiumReq: "Ares (Charismatic) mode is reserved for **Premium** subscribers. Please log in or become a premium subscriber. 🚫",
                     welcomePremium: 'Your premium membership is active. ✨',
                     welcomeFree: 'You can chat with HyperNova for free.',
                     desc_hypernova: 'HyperNova (Standard)',
                     desc_kaia: 'Kaia (Anime Girl)',
-                    desc_ares: 'Ares (Warrior)',
+                    desc_ares: 'Ares (Charismatic)',
                     desc_hypernova_dengesiz: 'HyperNova Chaotic (Chaotic)',
                     name_hypernova: 'HyperNova',
                     name_kaia: 'Kaia',
@@ -1583,7 +1583,7 @@ def index():
                     persona: {
                         hypernova: 'HyperNova (Standard) 🪐',
                         kaia: 'Kaia (Premium) 🌠',
-                        ares: 'Ares (Premium) ⚔️',
+                        ares: 'Ares (Premium) 🐺',
                         hypernova_dengesiz: 'HyperNova Chaotic (Chaotic) 🌪️'
                     }
                 },
@@ -1645,12 +1645,12 @@ def index():
                     modeChangedTo: 'Mod ',
                     newChatStarted: ' olarak değiştirildi. Yeni sohbet başlatıldı!',
                     kaiaPremiumReq: "Kaia (Anime Kızı) modu **Premium** aboneler için ayrılmıştır. Lütfen giriş yapın veya premium abonesi olun. 🚫",
-                    aresPremiumReq: "Ares (Savaşçı) modu **Premium** aboneler için ayrılmıştır. Lütfen giriş yapın veya premium abonesi olun. 🚫",
+                    aresPremiumReq: "Ares (Karizmatik) modu **Premium** aboneler için ayrılmıştır. Lütfen giriş yapın veya premium abonesi olun. 🚫",
                     welcomePremium: 'Premium üyeliğin aktif. ✨',
                     welcomeFree: 'HyperNova ile ücretsiz sohbet edebilirsin.',
                     desc_hypernova: 'HyperNova (Standart)',
                     desc_kaia: 'Kaia (Anime Kızı)',
-                    desc_ares: 'Ares (Savaşçı)',
+                    desc_ares: 'Ares (Karizmatik)',
                     desc_hypernova_dengesiz: 'HyperNova Dengesiz (Kaotik)',
                     name_hypernova: 'HyperNova',
                     name_kaia: 'Kaia',
@@ -1659,7 +1659,7 @@ def index():
                     persona: {
                         hypernova: 'HyperNova (Standart) 🪐',
                         kaia: 'Kaia (Premium) 🌠',
-                        ares: 'Ares (Premium) ⚔️',
+                        ares: 'Ares (Premium) 🐺',
                         hypernova_dengesiz: 'HyperNova Dengesiz (Kaotik) 🌪️'
                     }
                 }
@@ -1678,8 +1678,8 @@ def index():
                         placeholder: "Say something sweet to Kaia..."
                     },
                     ares: {
-                        text: "**Ares** is here. State your business clearly. I am ready for combat or conversation. What do you want? ⚔️",
-                        title: "Ares AI ⚔️🐺",
+                        text: "**Ares** is here. I am listening to you... Are you going to keep staring or are you going to say something? 😏🐺",
+                        title: "Ares AI 🐺🖤",
                         placeholder: "Speak to Ares..."
                     },
                     hypernova_dengesiz: {
@@ -1700,8 +1700,8 @@ def index():
                         placeholder: "Kaia'ya tatlı bir şey söyle..."
                     },
                     ares: {
-                        text: "**Ares** burada. Ne istediğini net söyle. Dövüşe veya konuşmaya hazırım. Ne istiyorsun? ⚔️",
-                        title: "Ares AI ⚔️🐺",
+                        text: "**Ares** burada. Seni dinliyorum... Öylece bakacak mısın yoksa bir şey söyleyecek misin? 😏🐺",
+                        title: "Ares AI 🐺🖤",
                         placeholder: "Ares ile konuş..."
                     },
                     hypernova_dengesiz: {
