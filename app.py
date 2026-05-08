@@ -361,18 +361,9 @@ def get_ui_translation(lang: str, key: str) -> str:
 def get_system_prompts(lang: str):
     """Dil'e göre system prompts döndürür."""
     return SYSTEM_PROMPTS_EN if lang == 'en' else SYSTEM_PROMPTS_TR
-# --- Asenkron API Çağrısı Fonksiyonu (Retry Mekanizması ile) ---
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=10),
-    retry=retry_if_exception_type(APIRequestError),
-    before_sleep=lambda retry_state: logger.warning(
-        f"API isteği başarısız oldu. Tekrar deneniyor... (Deneme: {retry_state.attempt_number})"
-    ),
-    reraise=True
-)
-async def async_chat_completion(messages: list, model: str, persona: str, lang: str, timeout: int = 90) -> str:
-    """Asenkron API çağrısı yapar ve hata durumunda tekrar dener."""
+# --- Asenkron API Çağrısı Fonksiyonu (Yedek Modeller ile) ---
+async def async_chat_completion(messages: list, primary_model: str, persona: str, lang: str, timeout: int = 90) -> str:
+    """Asenkron API çağrısı yapar ve hata durumunda yedek modelleri dener."""
     # Seçilen persona'ya göre system prompt'u ayarla
     system_prompts = get_system_prompts(lang)
     system_prompt = system_prompts.get(persona, system_prompts[DEFAULT_PERSONA])
@@ -383,37 +374,59 @@ async def async_chat_completion(messages: list, model: str, persona: str, lang: 
         "HTTP-Referer": os.getenv('APP_DOMAIN', 'https://hypernova-ai.com'),
         "X-Title": "HyperNova Chat App"
     }
-    payload = {
-        "model": model,
-        "messages": full_messages,
-        "max_tokens": 1000,
-        "temperature": 0.8,
-        "timeout": timeout
-    }
+
     if not API_KEY or API_KEY == 'YOUR_API_KEY_HERE':
         logger.error("API Anahtarı bulunamadı veya ayarlanmadı.")
         raise APIRequestError("API Key Hatası: Lütfen OpenRouter API Key'inizi ayarlayın.")
+
+    # Modelleri deneme sırası: Ana model -> Yedek 1 -> Yedek 2
+    models_to_try = [
+        primary_model,
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "nvidia/llama-3.1-nemotron-70b-instruct:free"
+    ]
+
+    last_error = None
     async with aiohttp.ClientSession(trust_env=True) as session:
-        try:
-            async with session.post(API_URL, json=payload, headers=headers, timeout=timeout) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    logger.error(f"API HTTP Hata Kodu: {response.status}, Cevap: {error_text}")
-                    try:
-                        error_json = json.loads(error_text)
-                        error_message = error_json.get('error', {}).get('message', f"Bilinmeyen hata: {response.status}")
-                    except json.JSONDecodeError:
-                        error_message = error_text
-                    raise APIRequestError(f"OpenRouter API Hatası: {error_message[:100]}...")
-                data = await response.json()
-                bot_response = data["choices"][0]["message"]["content"].strip()
-                return bot_response
-        except asyncio.TimeoutError:
-            logger.error(f"API isteği zaman aşımına uğradı ({timeout} saniye).")
-            raise APIRequestError("API Zaman Aşımı")
-        except Exception as e:
-            logger.error(f"Beklenmeyen bir hata oluştu: {e}")
-            raise APIRequestError(f"Beklenmeyen Hata: {e}")
+        for attempt, current_model in enumerate(models_to_try, 1):
+            payload = {
+                "model": current_model,
+                "messages": full_messages,
+                "max_tokens": 1000,
+                "temperature": 0.8,
+                "timeout": timeout
+            }
+            try:
+                logger.info(f"API isteği yapılıyor (Model: {current_model}, Deneme: {attempt})")
+                async with session.post(API_URL, json=payload, headers=headers, timeout=timeout) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        logger.error(f"API HTTP Hata Kodu: {response.status}, Model: {current_model}, Cevap: {error_text}")
+                        try:
+                            error_json = json.loads(error_text)
+                            error_message = error_json.get('error', {}).get('message', f"Bilinmeyen hata: {response.status}")
+                        except json.JSONDecodeError:
+                            error_message = error_text
+                        raise APIRequestError(f"OpenRouter API Hatası ({current_model}): {error_message[:100]}...")
+                    data = await response.json()
+                    bot_response = data["choices"][0]["message"]["content"].strip()
+                    return bot_response
+            except asyncio.TimeoutError as e:
+                logger.error(f"API isteği zaman aşımına uğradı ({timeout} saniye). Model: {current_model}")
+                last_error = APIRequestError(f"API Zaman Aşımı ({current_model})")
+            except Exception as e:
+                logger.error(f"Beklenmeyen bir hata oluştu. Model: {current_model}, Hata: {e}")
+                last_error = APIRequestError(f"API Hatası ({current_model}): {e}")
+            
+            # Eğer son modele gelmediysek ve hata aldıysak biraz bekleyip diğer modele geçelim
+            if attempt < len(models_to_try):
+                logger.warning(f"{current_model} başarısız oldu, yedek modele geçiliyor...")
+                await asyncio.sleep(1)
+                
+    # Bütün modeller denendi ve başarısız olduysa son hatayı fırlat
+    if last_error:
+        raise last_error
+    raise APIRequestError("Tüm modeller denendi fakat cevap alınamadı.")
 # --- Flask Rotaları (Authentication/Chat/Admin) ---
 @app.route('/is_premium', methods=['GET'])
 def is_premium_endpoint():
