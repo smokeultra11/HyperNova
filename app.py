@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 API_KEY = os.getenv('API_KEY', 'Your API')
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 DATABASE_URL = os.getenv('DATABASE_URL')
-MODEL_DEFAULT = "deepseek/deepseek-v4-flash"
+MODEL_DEFAULT = "x-ai/grok-4.5"
 UI_TRANSLATIONS = {
     'en': {
         'register_success': 'Registration successful. You can now log in.',
